@@ -12,7 +12,7 @@
 1. Add Crontab entry: 0 * * * * drebs
 
 ## Issues
-* State including config is cached in drebs_state.json.  This file will need to be deleted to get drebs to pick up new state.  Doing so will orphan current snapshots which will need to be deleted manually.
+* State including config is cached in drebs_state.json.  This file will need to be deleted to get drebs to pick up new config.  Doing so will orphan current snapshots which will need to be deleted manually.
 
 ## Todo
 * Tests!
