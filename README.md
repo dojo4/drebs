@@ -7,7 +7,7 @@
 * DREBS supports configurable pre and post snapshot tasks such as dumping databases prior to snapshot for consistency.
 
 ## Installation & Setup
-1. Clone the repo (gem available shortly)
+1. Clone the repo or install the gem
 1. Currently configuration is located at the top of the drebs bin.  Add you ec2 key, etc.
 1. Add Crontab entry: 0 * * * * drebs
 
