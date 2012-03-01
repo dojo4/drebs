@@ -8,7 +8,7 @@
 
 ## Installation & Setup
 1. Clone the repo or install the gem
-1. Create a configuration file.  See example with: drebs test_config example_config
+1. Currently configuration is located at the top of the drebs bin.  Add you ec2 key, etc.
 1. Add Crontab entry: 0 * * * * drebs
 
 ## Issues
