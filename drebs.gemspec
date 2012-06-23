@@ -9,7 +9,13 @@ spec.summary = "drebs"
 spec.description = "description: drebs kicks the ass"
 
 spec.files =
-["README.md", "Rakefile", "bin", "bin/drebs", "lib", "lib/drebs.rb"]
+["README.md",
+ "Rakefile",
+ "bin",
+ "bin/drebs",
+ "drebs.gemspec",
+ "lib",
+ "lib/drebs.rb"]
 
 spec.executables = ["drebs"]
 spec.require_path = "lib"
