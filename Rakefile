@@ -1,0 +1,298 @@
+This.rubyforge_project = 'DREBS'
+This.author = "Garett Shulman"
+This.email = "garett@dojo4.com"
+This.homepage = "https://github.com/dojo4/#{ This.lib }"
+
+task :default do
+  puts((Rake::Task.tasks.map{|task| task.name.gsub(/::/,':')} - ['default']).sort)
+end
+
+task :test do
+  run_tests!
+end
+
+namespace :test do
+  task(:unit){ run_tests!(:unit) }
+  task(:functional){ run_tests!(:functional) }
+  task(:integration){ run_tests!(:integration) }
+end
+
+def run_tests!(which = nil)
+  which ||= '**'
+  test_dir = File.join(This.dir, "test")
+  test_glob ||= File.join(test_dir, "#{ which }/**_test.rb")
+  test_rbs = Dir.glob(test_glob).sort
+        
+  test_rbs.each_with_index do |test_rb, index|
+    command = "#{ File.basename(This.ruby) } -I ./lib -I ./test/lib #{ test_rb }"
+    puts("Running test file: #{test_rb}")
+    system(command)
+  end
+end
+
+task :gemspec do
+  ignore_extensions = ['git', 'svn', 'tmp', /sw./, 'bak', 'gem']
+  ignore_directories = ['pkg', 'db']
+  ignore_files = ['test/log', 'test/db.yml', 'a.rb', 'b.rb'] + Dir['db/*'] + %w'db'
+
+  shiteless =
+    lambda do |list|
+      list.delete_if do |entry|
+        next unless test(?e, entry)
+        extension = File.basename(entry).split(%r/[.]/).last
+        ignore_extensions.any?{|ext| ext === extension}
+      end
+      list.delete_if do |entry|
+        next unless test(?d, entry)
+        dirname = File.expand_path(entry)
+        ignore_directories.any?{|dir| File.expand_path(dir) == dirname}
+      end
+      list.delete_if do |entry|
+        next unless test(?f, entry)
+        filename = File.expand_path(entry)
+        ignore_files.any?{|file| File.expand_path(file) == filename}
+      end
+    end
+
+  lib = This.lib
+  object = This.object
+  version = This.version
+  files = shiteless[Dir::glob("**/**")]
+  executables = shiteless[Dir::glob("bin/*")].map{|exe| File.basename(exe)}
+  #has_rdoc = true #File.exist?('doc')
+  test_files = test(?e, "test/#{ lib }.rb") ? "test/#{ lib }.rb" : nil
+  summary = object.respond_to?(:summary) ? object.summary : "summary: #{ lib } kicks the ass"
+  description = object.respond_to?(:description) ? object.description : "description: #{ lib } kicks the ass"
+
+  if This.extensions.nil?
+    This.extensions = []
+    extensions = This.extensions
+    %w( Makefile configure extconf.rb ).each do |ext|
+      extensions << ext if File.exists?(ext)
+    end
+  end
+  extensions = [extensions].flatten.compact
+
+# TODO
+  if This.dependencies.nil?
+    dependencies = []
+  else
+    case This.dependencies
+      when Hash
+        dependencies = This.dependencies.values
+      when Array
+        dependencies = This.dependencies
+    end
+  end
+
+  template =
+    if test(?e, 'gemspec.erb')
+      Template{ IO.read('gemspec.erb') }
+    else
+      Template {
+        <<-__
+## <%= lib %>.gemspec
+#
+
+Gem::Specification::new do |spec|
+spec.name = <%= lib.inspect %>
+spec.version = <%= version.inspect %>
+spec.platform = Gem::Platform::RUBY
+spec.summary = <%= lib.inspect %>
+spec.description = <%= description.inspect %>
+
+spec.files =\n<%= files.sort.pretty_inspect %>
+spec.executables = <%= executables.inspect %>
+spec.require_path = "lib"
+
+spec.test_files = <%= test_files.inspect %>
+
+<% dependencies.each do |lib_version| %>
+spec.add_dependency(*<%= Array(lib_version).flatten.inspect %>)
+<% end %>
+
+spec.extensions.push(*<%= extensions.inspect %>)
+
+spec.rubyforge_project = <%= This.rubyforge_project.inspect %>
+spec.author = <%= This.author.inspect %>
+spec.email = <%= This.email.inspect %>
+spec.homepage = <%= This.homepage.inspect %>
+end
+__
+      }
+    end
+
+  Fu.mkdir_p(This.pkgdir)
+  gemspec = "#{ lib }.gemspec"
+  open(gemspec, "w"){|fd| fd.puts(template)}
+  This.gemspec = gemspec
+end
+
+task :gem => [:clean, :gemspec] do
+  Fu.mkdir_p(This.pkgdir)
+  before = Dir['*.gem']
+  cmd = "gem build #{ This.gemspec }"
+  `#{ cmd }`
+  after = Dir['*.gem']
+  gem = ((after - before).first || after.first) or abort('no gem!')
+  Fu.mv(gem, This.pkgdir)
+  This.gem = File.join(This.pkgdir, File.basename(gem))
+end
+
+task :readme do
+  samples = ''
+  prompt = '~ > '
+  lib = This.lib
+  version = This.version
+
+  Dir['sample*/*'].sort.each do |sample|
+    samples << "\n" << " <========< #{ sample } >========>" << "\n\n"
+
+    cmd = "cat #{ sample }"
+    samples << Util.indent(prompt + cmd, 2) << "\n\n"
+    samples << Util.indent(`#{ cmd }`, 4) << "\n"
+
+    cmd = "ruby #{ sample }"
+    samples << Util.indent(prompt + cmd, 2) << "\n\n"
+
+    cmd = "ruby -e'STDOUT.sync=true; exec %(ruby -I ./lib #{ sample })'"
+    samples << Util.indent(`#{ cmd } 2>&1`, 4) << "\n"
+  end
+
+  template =
+    if test(?e, 'readme.erb')
+      Template{ IO.read('readme.erb') }
+    else
+      Template {
+        <<-__
+NAME
+#{ lib }
+
+DESCRIPTION
+
+INSTALL
+gem install #{ lib }
+
+SAMPLES
+#{ samples }
+__
+      }
+    end
+
+  open("README", "w"){|fd| fd.puts template}
+end
+
+
+task :clean do
+  Dir[File.join(This.pkgdir, '**/**')].each{|entry| Fu.rm_rf(entry)}
+end
+
+
+task :release => [:clean, :gemspec, :gem] do
+  gems = Dir[File.join(This.pkgdir, '*.gem')].flatten
+  raise "which one? : #{ gems.inspect }" if gems.size > 1
+  raise "no gems?" if gems.size < 1
+
+  cmd = "gem push #{ This.gem }"
+  puts cmd
+  puts
+  system(cmd)
+  abort("cmd(#{ cmd }) failed with (#{ $?.inspect })") unless $?.exitstatus.zero?
+
+  cmd = "rubyforge login && rubyforge add_release #{ This.rubyforge_project } #{ This.lib } #{ This.version } #{ This.gem }"
+  puts cmd
+  puts
+  system(cmd)
+  abort("cmd(#{ cmd }) failed with (#{ $?.inspect })") unless $?.exitstatus.zero?
+end
+
+
+
+
+
+BEGIN {
+# support for this rakefile
+#
+  $VERBOSE = nil
+
+  require 'ostruct'
+  require 'erb'
+  require 'fileutils'
+  require 'rbconfig'
+  require 'pp'
+
+# fu shortcut
+#
+  Fu = FileUtils
+
+# cache a bunch of stuff about this rakefile/environment
+#
+  This = OpenStruct.new
+
+  This.file = File.expand_path(__FILE__)
+  This.dir = File.dirname(This.file)
+  This.pkgdir = File.join(This.dir, 'pkg')
+
+# grok lib
+#
+  lib = ENV['LIB']
+  unless lib
+    lib = File.basename(Dir.pwd).sub(/[-].*$/, '')
+  end
+  This.lib = lib
+
+# grok version
+#
+  version = ENV['VERSION']
+  unless version
+    require "./lib/#{ This.lib }"
+    This.name = lib.capitalize
+    This.object = eval(This.name)
+    version = This.object.send(:version)
+  end
+  This.version = version
+
+# see if dependencies are export by the module
+#
+  if This.object.respond_to?(:dependencies)
+    This.dependencies = This.object.dependencies
+  end
+
+# we need to know the name of the lib an it's version
+#
+  abort('no lib') unless This.lib
+  abort('no version') unless This.version
+
+# discover full path to this ruby executable
+#
+  c = Config::CONFIG
+  bindir = c["bindir"] || c['BINDIR']
+  ruby_install_name = c['ruby_install_name'] || c['RUBY_INSTALL_NAME'] || 'ruby'
+  ruby_ext = c['EXEEXT'] || ''
+  ruby = File.join(bindir, (ruby_install_name + ruby_ext))
+  This.ruby = ruby
+
+# some utils
+#
+  module Util
+    def indent(s, n = 2)
+      s = unindent(s)
+      ws = ' ' * n
+      s.gsub(%r/^/, ws)
+    end
+
+    def unindent(s)
+      indent = nil
+      s.each_line do |line|
+      next if line =~ %r/^\s*$/
+      indent = line[%r/^\s*/] and break
+    end
+    indent ? s.gsub(%r/^#{ indent }/, "") : s
+  end
+    extend self
+  end
+
+# always run out of the project dir
+#
+  Dir.chdir(This.dir)
+}

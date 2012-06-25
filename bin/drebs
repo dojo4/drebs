@@ -1,0 +1,129 @@
+#!/usr/bin/env ruby
+
+require 'rubygems'
+require 'main'
+require 'logger'
+require 'systemu'
+require 'yaml'
+require 'socket'
+require 'net/smtp'
+
+require 'pry'
+require 'pry-nav'
+
+
+Main {
+
+  argument('config_path'){
+    argument :optional
+    description "A configuration file path. Passing 'example_config' uses an example configuration.  Give it a try: >drebs check_config example_config"
+  }
+
+  mode 'execute' do
+    def run
+      setup
+      @drebs.execute
+    end
+  end
+
+  mode 'install_crontab' do
+    def run
+      setup
+      @drebs.install_crontab
+    end
+  end
+
+  mode 'check_config' do
+    def run
+      setup
+      puts("No config errors found!")
+    end
+  end
+
+  mode 'check_cloud' do
+    def run
+      setup
+      @drebs.check_cloud
+    end
+  end
+
+  def run
+    help!
+  end
+
+  db {
+    create_table :strategies do
+      String :config
+      String :snapshots
+      String :status
+      String :time_til_next_run
+      String :time_between_runs
+      String :num_to_keep
+      String :pre_snapshot_tasks
+      String :post_snapshot_tasks
+    end unless table_exists? :strategies
+
+    create_table :snapshots do
+      String :aws_id
+      String :volume
+    end unless table_exists? :snapshots
+  }
+
+  def setup()
+    unless config_path = params['config_path'].value
+      raise 'Please provide a value for config_path.'
+    end
+    @config = load_config(config_path)
+
+    require File.join(lib_dir(), 'drebs', 'cloud.rb')
+    require File.join(lib_dir(), 'drebs', 'main.rb')
+
+    config_errors = Drebs::Main.check_config(example_config('print' => false), @config)
+    if config_errors.length == 0
+      @drebs = Drebs::Main.new('config' => @config, 'db' => db)
+    else
+      config_errors.each{|config_error| puts(config_error)}
+    end
+  end
+
+  def base_dir(*args, &block)
+    basedir = File.dirname(File.expand_path(__FILE__))
+    File.join(basedir, *args)
+  ensure
+    if block
+      begin
+        $LOAD_PATH.unshift(basedir)
+        block.call()
+      ensure
+        $LOAD_PATH.shift()
+      end
+    end
+  end
+
+  def lib_dir(&block)
+    base_dir(['..', 'lib'], &block)
+  end
+
+  def config_dir(&block)
+    base_dir(['..', 'config'], &block)
+  end
+
+  def example_config(params)
+    config_path = File.join(config_dir, 'example.yml')
+    example_config = IO.read(config_path)
+    if params['print']
+      puts("Example YAML Config File (#{config_path}):")
+      puts(example_config) 
+      puts()
+    end
+    YAML::load(example_config)
+  end
+
+  def load_config(config_path)
+    if config_path == 'example_config'
+      example_config('print' => true)
+    else
+      YAML::load(IO.read(config_path))
+    end
+  end
+}
