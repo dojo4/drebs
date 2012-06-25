@@ -20,7 +20,7 @@
 * Use Whenever gem for crontab setup
 * Arbitrary execution intervals (Snapshots every 5 minutes instead of every hour)
 
-Copyright 2012 Garett Shulman
+## Copyright 2012 Garett Shulman
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
