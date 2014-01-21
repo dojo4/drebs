@@ -1,8 +1,13 @@
 require "main"
 require "./lib/drebs/main.rb"
+require "./lib/drebs/cloud.rb"
 require "test/unit"
 require "yaml"
- 
+
+class TestEC2
+
+end
+
 class TestMain < Test::Unit::TestCase
 
   EXAMPLE_CONFIG_PATH = "./config/example.yml"
@@ -46,15 +51,6 @@ class TestMain < Test::Unit::TestCase
   end
 
   def cloud_context(*args, &block)
-    class TestEC2
-      def ==(other)
-        true
-      end
-
-      def method_missing
-        self.class.new
-      end
-    end
     ec2 = TestEC2.new
     main_context do |main|
 
@@ -91,7 +87,8 @@ class TestMain < Test::Unit::TestCase
   end
  
   def test_can_check_config
-    drebs_context() do |config, db, drebs, ec2|
+    drebs_context() do |config, db, ec2, drebs|
+require 'pry'; binding.pry
       assert(true)
     end
   end

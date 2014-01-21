@@ -2,7 +2,7 @@
 
 ## About
 * DREBS is a tool for taking periodic snapshots of EBS volumes.
-* DREBS is designed to be run on the EC2 host which the EBS volumes to be snapshoted are attached.
+* DREBS is designed to be run on the EC2 host which the EBS volumes to be snapshoted are attached so that it can be baked into AMI's.
 * DREBS supports configurable retention strategies.
 * DREBS supports configurable pre and post snapshot tasks such as dumping databases prior to snapshot for consistency.
 
@@ -20,7 +20,7 @@
 * Use Whenever gem for crontab setup
 * Arbitrary execution intervals (Snapshots every 5 minutes instead of every hour)
 
-## Copyright 2012 Garett Shulman
+## Copyright 2014 Garett Shulman
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
