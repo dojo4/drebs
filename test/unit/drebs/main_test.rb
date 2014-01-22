@@ -18,6 +18,8 @@ class TestMain < Test::Unit::TestCase
       config = YAML::load(IO.read(EXAMPLE_CONFIG_PATH))
       main.dotdir(TMP_TEST_DATA_PATH)
       main.db() do
+
+        drop_table :strategies if table_exists? :strategies
         create_table :strategies do
           String :config
           String :snapshots
@@ -27,12 +29,13 @@ class TestMain < Test::Unit::TestCase
           String :num_to_keep
           String :pre_snapshot_tasks
           String :post_snapshot_tasks
-        end unless table_exists? :strategies
+        end
 
+        drop_table :snapshots if table_exists? :snapshots
         create_table :snapshots do
           String :aws_id
           String :volume
-        end unless table_exists? :snapshots
+        end 
       end
 
       if block
@@ -41,6 +44,10 @@ class TestMain < Test::Unit::TestCase
         ensure
           begin
             #fake main cleanup
+            main.db() do
+              drop_table :strategies if table_exists? :strategies
+              drop_table :snapshots if table_exists? :snapshots
+            end
           rescue => e
           end
         end
@@ -53,7 +60,6 @@ class TestMain < Test::Unit::TestCase
   def cloud_context(*args, &block)
     ec2 = TestEC2.new
     main_context do |main|
-
       if block
         begin
           block.call(ec2)
@@ -88,21 +94,41 @@ class TestMain < Test::Unit::TestCase
  
   def test_can_check_config
     drebs_context() do |config, db, ec2, drebs|
-require 'pry'; binding.pry
-      assert(true)
+      config_errors = drebs.class.check_config(config, config)
+      assert(config_errors == [])
     end
   end
 
   def test_check_config_finds_missing_keys
-
+    drebs_context() do |config, db, ec2, drebs|
+      bad_config = config.clone
+      bad_config.delete(bad_config.keys.first)
+      config_errors = drebs.class.check_config(config, bad_config)
+      assert(config_errors.length == 1)
+      assert(config_errors[0].include?("Missing key/value"))
+    end
   end
 
   def test_can_save_strategies
-
+    main_context() do |config, db|
+      assert(db[:strategies].all == [])
+      drebs = Drebs::Main.new('config' => config, 'db' => db)
+      assert(db[:strategies].all.length > 0)
+    end
   end
 
   def test_removed_strategies_get_deactivated
-
+    main_context() do |config, db|
+      drebs = Drebs::Main.new('config' => config, 'db' => db)
+      num_active_strategies = db[:strategies].where(:status=>"active").count
+      num_inactive_strategies = db[:strategies].where(:status=>"inactive").count
+      config['strategies'] = config['strategies'][1..-1]
+      drebs = Drebs::Main.new('config' => config, 'db' => db)
+      num_active_strategies_dec = db[:strategies].where(:status=>"active").count
+      num_inactive_strategies_inc = db[:strategies].where(:status=>"inactive").count
+      assert(num_active_strategies == num_active_strategies_dec + 1)
+      assert(num_inactive_strategies == num_inactive_strategies_inc - 1)
+    end
   end
 
   def test_backups_get_pruned
