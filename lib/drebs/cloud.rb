@@ -20,10 +20,10 @@ module Drebs
     
     def find_local_instance
       #find a better way... right-aws?
-      private_ip = UDPSocket.open {|s| s.connect("8.8.8.8", 1); s.addr.last}
-      ec2.describe_instances.each {|instance|
+      private_ip = UDPSocket.open{|s| s.connect("8.8.8.8", 1); s.addr.last}
+      ec2.describe_instances.each do |instance|
         return instance if instance[:private_ip_address] == private_ip
-      }
+      end
       return nil
     end
     
@@ -56,11 +56,11 @@ module Drebs
         end
       end if pre_snapshot_tasks
       snapshot = ec2.create_snapshot(ebs[:ebs_volume_id], "DREBS #{ip}:#{mount_point} #{instance_id}:#{volume_id}")
-      Thread.new(snapshot[:aws_id], post_snapshot_tasks) {|snapshot_id, post_snapshot_tasks|
-        1.upto(500) {|a|
+      Thread.new(snapshot[:aws_id], post_snapshot_tasks) do |snapshot_id, post_snapshot_tasks|
+        1.upto(500) do |a|
           sleep(3)
           break if get_snapshot(snapshot_id)[:aws_status] == 'completed'
-        }
+        end
         post_snapshot_tasks.each do |task|
           result = systemu(task)
           unless result.exitstatus == 0
@@ -69,7 +69,7 @@ module Drebs
             )
           end
         end if post_snapshot_tasks
-      }
+      end
       return snapshot
     end
     

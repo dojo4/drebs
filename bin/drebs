@@ -11,7 +11,6 @@ require 'net/smtp'
 require 'pry'
 require 'pry-nav'
 
-
 Main {
 
   argument('config_path'){
@@ -26,12 +25,12 @@ Main {
     end
   end
 
-  mode 'install_crontab' do
-    def run
-      setup
-      @drebs.install_crontab
-    end
-  end
+#  mode 'install_crontab' do
+#    def run
+#      setup
+#      @drebs.install_crontab
+#    end
+#  end
 
   mode 'check_config' do
     def run
@@ -44,6 +43,13 @@ Main {
     def run
       setup
       @drebs.check_cloud
+    end
+  end
+
+  mode 'shell' do
+    def run
+      setup
+      binding.pry(:hooks => Pry::Hooks.new, :prompt => proc{|*a| "drebs>"})
     end
   end
 
@@ -62,11 +68,6 @@ Main {
       String :pre_snapshot_tasks
       String :post_snapshot_tasks
     end unless table_exists? :strategies
-
-    create_table :snapshots do
-      String :aws_id
-      String :volume
-    end unless table_exists? :snapshots
   }
 
   def setup()
