@@ -17,7 +17,8 @@
         'logger'    => ['logger'   , '>= 1.2.8'],
         'main'      => ['main'     , '>= 5.2.0'],
         'systemu'   => ['systemu'  , '>= 2.4.2'],
-        'json'      => ['json'     , '>= 1.5.1']
+        'json'      => ['json'     , '>= 1.5.1'],
+        'pry'       => ['pry'      , '>= 0.9.12.6'],
       }
     end
 

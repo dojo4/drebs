@@ -29,10 +29,16 @@ module Drebs
     
     def find_local_ebs(mount_point)
       return nil if not local_instance = find_local_instance
-      local_instance[:block_device_mappings].each {|volume|
+      local_instance[:block_device_mappings].each do |volume|
         return volume if volume[:device_name] == mount_point
-      }
+      do
       return nil
+    end
+
+    def local_ebs_ids
+      @ebs_ids ||= find_local_instance[:block_device_mappings].map do |volume| 
+        volume[:ebs_volume_id]
+      end rescue nil
     end
     
     def get_snapshot(snapshot_id)

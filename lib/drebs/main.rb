@@ -1,5 +1,9 @@
 module Drebs
   class Main
+    attr_reader :config
+    attr_reader :cloud
+    attr_reader :db
+
     def initialize(params)
       unless @config = params['config'].clone()
         raise "No config_file_path passed!" 
@@ -99,7 +103,7 @@ module Drebs
       to_prune = potential_prunes.uniq.select do |prune|
         prune if @db['strategies'].find(:snapshots.like("%#{prune}%")) == 0
       end
-      to_prune.each { |snapshot_to_prune|  ec2.delete_snapshot(snapshot_to_prune) }
+      to_prune.each { |snapshot_to_prune|  ec2.delete_snapshot(snapshot_to_prune.split(":")[0]) }
     end
     
     def execute
@@ -121,8 +125,11 @@ module Drebs
           snapshot = create_local_snapshot(pre_snapshot_tasks, post_snapshot_tasks, mount_point)
   
           strategies.collect {|s|
-            snapshots = s['snapshots'].split(",").push(
-              s['status']=='active' ? snapshot[:aws_id] : nil
+            snapshots = s['snapshots'].split(",")
+            snapshots.select!{|snapshot| local_ebs_ids.include? snapshot.split(":")[1]}
+            snapshots.push(
+              s['status']=='active' ?
+                "#{snapshot[:aws_id]}:#{snapshot[:aws_volume_id]}" : nil
             ).join(",")
             s.update( :snapshots => snapshots )
             s.update( :hours_until_next_run => s['hours_between'] )

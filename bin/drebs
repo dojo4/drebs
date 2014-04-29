@@ -7,9 +7,7 @@ require 'systemu'
 require 'yaml'
 require 'socket'
 require 'net/smtp'
-
 require 'pry'
-require 'pry-nav'
 
 Main {
 
