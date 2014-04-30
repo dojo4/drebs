@@ -93,11 +93,13 @@ module Drebs
       strategies.each do |strategy|
         snapshots = strategy[:snapshots].split(",")
         if snapshots.uniq==[nil]
-          strategy.update(:snapshots => "")
+          @db[:strategies].filter(:config=>s[:config]).update(:snapshots => "")
         elsif snapshots == []
         elsif snapshots.count > strategy[:num_to_keep].to_i
           potential_prunes.push(snapshots.shift)
-          strategy.update(:snapshots => snapshots.join(","))
+          @db[:strategies].filter(:config=>s[:config]).update(
+            :snapshots => snapshots.join(",")
+          )
         end
       end
       to_prune = potential_prunes.uniq.select do |prune|
@@ -111,9 +113,13 @@ module Drebs
   
       #Decrement time_til_next_run, save
       active_strategies.each do |s|
-        s.update(:time_til_next_run => s[:time_til_next_run].to_i - 1)
+        @db[:strategies].filter(:config=>s[:config]).update(
+          :time_til_next_run => (s[:time_til_next_run].to_i - 1)
+        )
       end
   
+      active_strategies = @db[:strategies].filter({:status=>"active"})
+
       #backup_now = strategies where hours_until_next_run == 0
       backup_now = active_strategies.to_a.select{|s| s[:time_til_next_run].to_i <= 0}
   
@@ -133,8 +139,10 @@ module Drebs
               s[:status]=='active' ?
                 "#{snapshot[:aws_id]}:#{snapshot[:aws_volume_id]}" : nil
             ).join(",")
-            s.update( :snapshots => snapshots )
-            s.update( :hours_until_next_run => s['hours_between'] )
+            @db[:strategies].filter(:config=>s[:config]).update(
+            :snapshots => snapshots,
+            :hours_until_next_run => s['hours_between']
+            )
           }
     
         rescue Exception => error
