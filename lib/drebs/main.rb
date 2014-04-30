@@ -94,8 +94,8 @@ module Drebs
         snapshots = strategy['snapshots'].split(",")
         if snapshots.uniq==[nil]
           strategy.update(:snapshots => "")
-        end
-        if snapshots.count > strategy['num_to_keep'].to_i
+        elsif snapshots == []
+        elsif snapshots.count > strategy['num_to_keep'].to_i
           potential_prunes.push(snapshots.shift)
           strategy.update(:snapshots => snapshots.join(","))
         end
@@ -107,13 +107,13 @@ module Drebs
     end
     
     def execute
-      variable_strategies = @db[:strategies].filter( {:status=>"active" & ~{:snapshots=>"", :snapshots=>nil}.sql_or} )
+      active_strategies = @db[:strategies].filter({:status=>"active"})# & ~{:snapshots=>"", :snapshots=>nil}.sql_or} )
   
       #Decrement time_til_next_run, save
-      variable_strategies.each{ |s| s.update(:time_til_next_run => s['time_til_next_run'].to_i - 1) }
+      active_strategies.each{ |s| s.update(:time_til_next_run => s['time_til_next_run'].to_i - 1) }
   
       #backup_now = strategies where hours_until_next_run == 0
-      backup_now = variable_strategies.select{|s| s['time_til_next_run'] <= 0}
+      backup_now = active_strategies.select{|s| s['time_til_next_run'] <= 0}
   
       #loop over strategies grouped by mount_point
       backup_now.group_by{|s| s['mount_point']}.each do |mount_point, strategies|
@@ -140,7 +140,8 @@ module Drebs
           send_email("DREBS Error!", "AWS Instance: #{find_local_instance[:aws_instance_id]}\n#{error.message}\n#{error.backtrace.join("\n")}")
         end
       end
-      prune_backups(variable_strategies)
+
+      prune_backups(@db[:strategies])
     end
   end
 end
