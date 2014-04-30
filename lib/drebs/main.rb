@@ -91,11 +91,11 @@ module Drebs
     def prune_backups(strategies)
       potential_prunes = []
       strategies.each do |strategy|
-        snapshots = strategy['snapshots'].split(",")
+        snapshots = strategy[:snapshots].split(",")
         if snapshots.uniq==[nil]
           strategy.update(:snapshots => "")
         elsif snapshots == []
-        elsif snapshots.count > strategy['num_to_keep'].to_i
+        elsif snapshots.count > strategy[:num_to_keep].to_i
           potential_prunes.push(snapshots.shift)
           strategy.update(:snapshots => snapshots.join(","))
         end
@@ -107,28 +107,30 @@ module Drebs
     end
     
     def execute
-      active_strategies = @db[:strategies].filter({:status=>"active"})# & ~{:snapshots=>"", :snapshots=>nil}.sql_or} )
+      active_strategies = @db[:strategies].filter({:status=>"active"})
   
       #Decrement time_til_next_run, save
-      active_strategies.each{ |s| s.update(:time_til_next_run => s['time_til_next_run'].to_i - 1) }
+      active_strategies.each do |s|
+        s.update(:time_til_next_run => s[:time_til_next_run].to_i - 1)
+      end
   
       #backup_now = strategies where hours_until_next_run == 0
-      backup_now = active_strategies.select{|s| s['time_til_next_run'] <= 0}
+      backup_now = active_strategies.to_a.select{|s| s[:time_til_next_run].to_i <= 0}
   
       #loop over strategies grouped by mount_point
-      backup_now.group_by{|s| s['mount_point']}.each do |mount_point, strategies|
-        pre_snapshot_tasks = strategies.map{|s| s['pre_snapshot_tasks'].split(",")}.flatten.uniq
-        post_snapshot_tasks = strategies.map{|s| s['pre_snapshot_tasks'].split(",")}.flatten.uniq
+      backup_now.group_by{|s| s[:mount_point]}.each do |mount_point, strategies|
+        pre_snapshot_tasks = strategies.map{|s| s[:pre_snapshot_tasks].split(",")}.flatten.uniq
+        post_snapshot_tasks = strategies.map{|s| s[:pre_snapshot_tasks].split(",")}.flatten.uniq
   
         @log.info("creating snapshot of #{mount_point}")
         begin
           snapshot = create_local_snapshot(pre_snapshot_tasks, post_snapshot_tasks, mount_point)
   
           strategies.collect {|s|
-            snapshots = s['snapshots'].split(",")
+            snapshots = s[:snapshots].split(",")
             snapshots.select!{|snapshot| local_ebs_ids.include? snapshot.split(":")[1]}
             snapshots.push(
-              s['status']=='active' ?
+              s[:status]=='active' ?
                 "#{snapshot[:aws_id]}:#{snapshot[:aws_volume_id]}" : nil
             ).join(",")
             s.update( :snapshots => snapshots )
