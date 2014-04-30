@@ -80,7 +80,7 @@ module Drebs
       host = @config['email_host']
       port = @config['email_port']
       domain = @config['email_domain']
-      username = @config['email_username']
+      username = @config['email_user']
       password = @config['email_password']
       
       msg = "Subject: #{subject}\n\n#{body}"
