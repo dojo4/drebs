@@ -13,6 +13,8 @@ module Drebs
       end
       update_strategies(@config.delete("strategies"))
       @cloud = Drebs::Cloud.new(@config)
+      @log = Logger.new(@config["log_path"])
+      @log.level = Logger::WARN
     end
 
     def check_cloud
