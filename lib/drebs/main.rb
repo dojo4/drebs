@@ -108,7 +108,7 @@ module Drebs
       to_prune = potential_prunes.uniq.select do |prune|
         prune if @db['strategies'].find(:snapshots.like("%#{prune}%")) == 0
       end
-      to_prune.each { |snapshot_to_prune|  ec2.delete_snapshot(snapshot_to_prune.split(":")[0]) }
+      to_prune.each { |snapshot_to_prune|  @cloud.ec2.delete_snapshot(snapshot_to_prune.split(":")[0]) }
     end
     
     def execute
@@ -133,11 +133,11 @@ module Drebs
   
         @log.info("creating snapshot of #{mount_point}")
         begin
-          snapshot = create_local_snapshot(pre_snapshot_tasks, post_snapshot_tasks, mount_point)
+          snapshot = @cloud.create_local_snapshot(pre_snapshot_tasks, post_snapshot_tasks, mount_point)
   
           strategies.collect {|s|
             snapshots = s[:snapshots].split(",")
-            snapshots.select!{|snapshot| local_ebs_ids.include? snapshot.split(":")[1]}
+            snapshots.select!{|snapshot| @cloud.local_ebs_ids.include? snapshot.split(":")[1]}
             snapshots.push(
               s[:status]=='active' ?
                 "#{snapshot[:aws_id]}:#{snapshot[:aws_volume_id]}" : nil
@@ -150,7 +150,7 @@ module Drebs
     
         rescue Exception => error
           @log.error("Exception occured during backup: #{error.message}\n#{error.backtrace.join("\n")}")
-          send_email("DREBS Error!", "AWS Instance: #{find_local_instance[:aws_instance_id]}\n#{error.message}\n#{error.backtrace.join("\n")}")
+          send_email("DREBS Error!", "AWS Instance: #{@cloud.find_local_instance[:aws_instance_id]}\n#{error.message}\n#{error.backtrace.join("\n")}")
         end
       end
 
