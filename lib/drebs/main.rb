@@ -52,9 +52,9 @@ module Drebs
         exists = @db[:strategies].filter(:config=>strategy.to_yaml).update(:status=>"active")
         if exists==0
           pre_snapshot_tasks = strategy['pre_snapshot_tasks']
-          pre_snapshot_tasks = pre_snapshot_tasks ? pre_snapshot_tasks.join(",") : []
+          pre_snapshot_tasks = pre_snapshot_tasks ? pre_snapshot_tasks.join(",") : ""
           post_snapshot_tasks = strategy['post_snapshot_tasks']
-          post_snapshot_tasks = post_snapshot_tasks ? post_snapshot_tasks.join(",") : []
+          post_snapshot_tasks = post_snapshot_tasks ? post_snapshot_tasks.join(",") : ""
           @db[:strategies].insert(
             :config=>strategy.to_yaml,
             :snapshots=>"",
@@ -63,7 +63,8 @@ module Drebs
             :time_between_runs => strategy['hours_between'],
             :num_to_keep => strategy['num_to_keep'],
             :pre_snapshot_tasks => pre_snapshot_tasks,
-            :post_snapshot_tasks => post_snapshot_tasks
+            :post_snapshot_tasks => post_snapshot_tasks,
+            :mount_point => strategy['mount_point']
           )
         end
       end

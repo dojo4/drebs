@@ -65,6 +65,7 @@ Main {
       String :num_to_keep
       String :pre_snapshot_tasks
       String :post_snapshot_tasks
+      String :mount_point
     end unless table_exists? :strategies
   }
 
