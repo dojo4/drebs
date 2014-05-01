@@ -27,6 +27,7 @@ def run_tests!(which = nil)
   div = ('=' * 119)
   line = ('-' * 119)
 
+  puts "running #{ test_rbs.count } test files..."
   test_rbs.each_with_index do |test_rb, index|
     testno = index + 1
     command = "#{ File.basename(This.ruby) } -I ./lib -I ./test/lib #{ test_rb }"
