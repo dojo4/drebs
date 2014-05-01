@@ -123,7 +123,7 @@ module Drebs
   
       active_strategies = @db[:strategies].filter({:status=>"active"})
 
-      #backup_now = strategies where time_til_next_run == 0
+      #backup_now = strategies where time_til_next_run <= 0
       backup_now = active_strategies.to_a.select{|s| s[:time_til_next_run].to_i <= 0}
   
       #loop over strategies grouped by mount_point
@@ -143,8 +143,8 @@ module Drebs
                 "#{snapshot[:aws_id]}:#{snapshot[:aws_volume_id]}" : nil
             ).join(",")
             @db[:strategies].filter(:config=>s[:config]).update(
-            :snapshots => snapshots,
-            :time_til_next_run => s['hours_between']
+              :snapshots => snapshots,
+              :time_til_next_run => s[:time_between_runs]
             )
           }
     
