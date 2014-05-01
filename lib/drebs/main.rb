@@ -96,17 +96,17 @@ module Drebs
       strategies.each do |strategy|
         snapshots = strategy[:snapshots].split(",")
         if snapshots.uniq==[nil]
-          @db[:strategies].filter(:config=>s[:config]).update(:snapshots => "")
+          @db[:strategies].filter(:config=>strategy[:config]).update(:snapshots => "")
         elsif snapshots == []
         elsif snapshots.count > strategy[:num_to_keep].to_i
           potential_prunes.push(snapshots.shift)
-          @db[:strategies].filter(:config=>s[:config]).update(
+          @db[:strategies].filter(:config=>strategy[:config]).update(
             :snapshots => snapshots.join(",")
           )
         end
       end
       to_prune = potential_prunes.uniq.select do |prune|
-        prune if @db['strategies'].find(:snapshots.like("%#{prune}%")) == 0
+        prune if @db[:strategies].find(:snapshots.like("%#{prune}%")) == 0
       end
       to_prune.each { |snapshot_to_prune|  @cloud.ec2.delete_snapshot(snapshot_to_prune.split(":")[0]) }
     end
