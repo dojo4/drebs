@@ -141,9 +141,9 @@ module Drebs
             snapshots.push(
               s[:status]=='active' ?
                 "#{snapshot[:aws_id]}:#{snapshot[:aws_volume_id]}" : nil
-            ).join(",")
+            )
             @db[:strategies].filter(:config=>s[:config]).update(
-              :snapshots => snapshots,
+              :snapshots => snapshots.join(","),
               :time_til_next_run => s[:time_between_runs]
             )
           }
