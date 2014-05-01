@@ -106,7 +106,7 @@ module Drebs
         end
       end
       to_prune = potential_prunes.uniq.select do |prune|
-        prune if @db[:strategies].find(:snapshots.like("%#{prune}%")) == 0
+        prune if @db[:strategies].all.none?{|s| s[:snapshots].include?(prune)}
       end
       to_prune.each { |snapshot_to_prune|  @cloud.ec2.delete_snapshot(snapshot_to_prune.split(":")[0]) }
     end
