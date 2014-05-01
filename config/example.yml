@@ -21,8 +21,8 @@ strategies:
   mount_point: /dev/sda1
 log_path: /usr/local/var/drebs.log
 email_on_exception: admin@your.org
-email_host: 'imap.gmail.com'
-email_port: 993
+email_host: 'smtp.gmail.com'
+email_port: 587
 email_domain: 'gmail.com'
 email_user: = 'Your smpt username'
 email_password: = 'Your smpt password'
