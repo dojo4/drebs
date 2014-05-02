@@ -24,5 +24,5 @@ email_on_exception: admin@your.org
 email_host: 'smtp.gmail.com'
 email_port: 587
 email_domain: 'gmail.com'
-email_user: = 'Your smpt username'
-email_password: = 'Your smpt password'
+email_user: = 'Your smtp username'
+email_password: = 'Your smtp password'
