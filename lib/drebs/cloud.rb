@@ -54,8 +54,7 @@ module Drebs
       volume_id = local_instance[:block_device_mappings].select{|m| m[:device_name]==mount_point}.first[:ebs_volume_id]
       return nil if not ebs = find_local_ebs(mount_point)
       pre_snapshot_tasks.each do |task|
-        result = systemu(task)
-        result = result.detect{|r| r.is_a?(Process::Status)} if result.is_a?(Array)
+        result, stdout, stderr = systemu(task)
         unless result.exitstatus == 0
           raise Exception(
             "Error while executing pre-snapshot task: #{task} on #{ip}:#{mount_point} #{instance_id}:#{volume_id} "
