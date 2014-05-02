@@ -99,10 +99,7 @@ module Drebs
           @db[:strategies].filter(:config=>strategy[:config]).update(:snapshots => "")
         elsif snapshots == []
         elsif snapshots.count > strategy[:num_to_keep].to_i
-          potential_prunes.push(snapshots.shift)
-          @db[:strategies].filter(:config=>strategy[:config]).update(
-            :snapshots => snapshots.join(",")
-          )
+          potential_prunes.push(snapshots.first)
         end
       end
       to_prune = potential_prunes.uniq.select do |prune|
@@ -113,18 +110,16 @@ module Drebs
 
         begin
           @cloud.ec2.delete_snapshot(snapshot)
-          # delete the snapshot in the db
-          remove_pruned_snapshot(snapshot_to_prune)
         rescue RightAws::AwsError => e
-          if e.message.downcase =~ /does not exist/
-            # delete the snapshot in the db
-            remove_pruned_snapshot(snapshot_to_prune)
-          end
+          type = e.errors.first.first rescue ''
+          raise unless type == "InvalidSnapshot.NotFound"
         end
+
+        remove_pruned_snapshot_from_db(snapshot_to_prune)
       end
     end
 
-    def remove_pruned_snapshot(snapshot)
+    def remove_pruned_snapshot_from_db(snapshot)
       # find the strategy to which this snapshot belongs
       strategy = @db[:strategies].all.detect{|strategy| strategy[:snapshots].split(',').include?(snapshot)}
       # update the strategy's snapshots to include all except given snapshot
