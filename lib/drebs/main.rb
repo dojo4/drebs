@@ -114,18 +114,23 @@ module Drebs
         begin
           @cloud.ec2.delete_snapshot(snapshot)
           # delete the snapshot in the db
-          remove_pruned_snapshot(snapshot)
+          remove_pruned_snapshot(snapshot_to_prune)
         rescue RightAws::AwsError => e
           if e.message.downcase =~ /does not exist/
             # delete the snapshot in the db
-            remove_pruned_snapshot(snapshot)
+            remove_pruned_snapshot(snapshot_to_prune)
           end
         end
       end
+    end
 
-      def remove_pruned_snapshot(snapshot)
-        # find the strategy to which this snapshot belongs
-        # update the strategy's snapshots to include all except given snapshot
+    def remove_pruned_snapshot(snapshot)
+      # find the strategy to which this snapshot belongs
+      strategy = @db[:strategies].all.detect{|strategy| strategy[:snapshots].split(',').include?(snapshot)}
+      # update the strategy's snapshots to include all except given snapshot
+      unless strategy.nil?
+        new_snapshots = strategy[:snapshots].split(',').delete_if{|snap| snap == snapshot}.join(',')
+        strategy.update(:snapshots => new_snapshots)
       end
     end
     
