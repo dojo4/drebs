@@ -92,19 +92,18 @@ module Drebs
     end
   
     def prune_backups(strategies)
-      potential_prunes = []
+      to_prune = []
+
       strategies.each do |strategy|
         snapshots = strategy[:snapshots].split(",")
         if snapshots.uniq==[nil]
           @db[:strategies].filter(:config=>strategy[:config]).update(:snapshots => "")
         elsif snapshots == []
         elsif snapshots.count > strategy[:num_to_keep].to_i
-          potential_prunes.push(snapshots.first)
+          to_prune.push(snapshots.first)
         end
       end
-      to_prune = potential_prunes.uniq.select do |prune|
-        prune if @db[:strategies].all.none?{|s| s[:snapshots].include?(prune)}
-      end
+
       to_prune.each do |snapshot_to_prune|  
         snapshot = snapshot_to_prune.split(":")[0]
 
@@ -125,7 +124,7 @@ module Drebs
       # update the strategy's snapshots to include all except given snapshot
       unless strategy.nil?
         new_snapshots = strategy[:snapshots].split(',').delete_if{|snap| snap == snapshot}.join(',')
-        strategy.update(:snapshots => new_snapshots)
+        @db[:strategies].filter(:config=>strategy[:config]).update(:snapshots => new_snapshots)
       end
     end
     
