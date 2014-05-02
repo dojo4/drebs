@@ -108,7 +108,25 @@ module Drebs
       to_prune = potential_prunes.uniq.select do |prune|
         prune if @db[:strategies].all.none?{|s| s[:snapshots].include?(prune)}
       end
-      to_prune.each { |snapshot_to_prune|  @cloud.ec2.delete_snapshot(snapshot_to_prune.split(":")[0]) }
+      to_prune.each do |snapshot_to_prune|  
+        snapshot = snapshot_to_prune.split(":")[0]
+
+        begin
+          @cloud.ec2.delete_snapshot(snapshot)
+          # delete the snapshot in the db
+          remove_pruned_snapshot(snapshot)
+        rescue RightAws::AwsError => e
+          if e.message.downcase =~ /does not exist/
+            # delete the snapshot in the db
+            remove_pruned_snapshot(snapshot)
+          end
+        end
+      end
+
+      def remove_pruned_snapshot(snapshot)
+        # find the strategy to which this snapshot belongs
+        # update the strategy's snapshots to include all except given snapshot
+      end
     end
     
     def execute
