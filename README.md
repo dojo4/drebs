@@ -24,6 +24,14 @@
 * Add example AWS user access configuration
 * Implement support for pruning to occur from some other host so that the keys to delete snapshots are not available on host.
 
+## Testing notes
+
+*  __shell command__:  If you do: `drebs shell some_config` you will end up at a shell with `@drebs` defined and you will be able to access `@drebs.db`, `@drebs.config`, & `@drebs.cloud`.  If you set `@drebs.cloud` to be an instance of TestCloud from the test suite you should be able to execute various functions without actually hitting AWS and so work from your dev box.
+
+* Due to the nature of drebs being designed to be run from an ec2 you will need to be on your ec2 instance to test many of the AWS interactions.
+
+* You should be able to verify data on a snapshot by creating an ebs volume from the snapshot, attaching the volume to your instance and then mounting its file system on some mount point - [aws docs on using volumes](http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ebs-using-volumes.html)
+
 ## Copyright 2014 Garett Shulman
 
 Licensed under the Apache License, Version 2.0 (the "License");
