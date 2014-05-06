@@ -100,34 +100,36 @@ module Drebs
           @db[:strategies].filter(:config=>strategy[:config]).update(:snapshots => "")
         elsif snapshots == []
         elsif snapshots.count > strategy[:num_to_keep].to_i
-          to_prune.push(snapshots.first)
+          # only remove it from EC2 if there are no other strategies with this snapshot
+          to_prune.push(Map.for({
+            :snapshot => snapshots.first.split(":")[0],
+            :strategy => strategy
+          }))
         end
       end
 
-      to_prune.each do |snapshot_to_prune|  
-        snapshot = snapshot_to_prune.split(":")[0]
+      to_prune.each do |prune_obj|
+        snapshot = prune_obj.snapshot
+        strategy = prune_obj.strategy
 
-        begin
-          @cloud.ec2.delete_snapshot(snapshot)
-        rescue RightAws::AwsError => e
-          type = e.errors.first.first rescue ''
-          raise unless type == "InvalidSnapshot.NotFound"
+        # make sure that no other strategies have this snapshot
+        strategies_with_snapshot = @db[:strategies].all.select{|strategy| strategy[:snapshots].split(',').include?(snapshot)}
+
+        if strategies_with_snapshot.count == 1
+          begin
+            @cloud.ec2.delete_snapshot(snapshot)
+          rescue RightAws::AwsError => e
+            type = e.errors.first.first rescue ''
+            raise unless type == "InvalidSnapshot.NotFound"
+          end
         end
 
-        remove_pruned_snapshot_from_db(snapshot_to_prune)
-      end
-    end
-
-    def remove_pruned_snapshot_from_db(snapshot)
-      # find the strategy to which this snapshot belongs
-      strategy = @db[:strategies].all.detect{|strategy| strategy[:snapshots].split(',').include?(snapshot)}
-      # update the strategy's snapshots to include all except given snapshot
-      unless strategy.nil?
+        # update the strategy's snapshots to include all except given snapshot
         new_snapshots = strategy[:snapshots].split(',').delete_if{|snap| snap == snapshot}.join(',')
         @db[:strategies].filter(:config=>strategy[:config]).update(:snapshots => new_snapshots)
       end
     end
-    
+
     def execute
       active_strategies = @db[:strategies].filter({:status=>"active"})
   
