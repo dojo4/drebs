@@ -102,7 +102,7 @@ module Drebs
         elsif snapshots.count > strategy[:num_to_keep].to_i
           # only remove it from EC2 if there are no other strategies with this snapshot
           to_prune.push(Map.for({
-            :snapshot => snapshots.first.split(":")[0],
+            :snapshot => snapshots.first,
             :strategy => strategy
           }))
         end
@@ -117,7 +117,7 @@ module Drebs
 
         if strategies_with_snapshot.count == 1
           begin
-            @cloud.ec2.delete_snapshot(snapshot)
+            @cloud.ec2.delete_snapshot(snapshot.split(":")[0])
           rescue RightAws::AwsError => e
             type = e.errors.first.first rescue ''
             raise unless type == "InvalidSnapshot.NotFound"
