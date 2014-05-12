@@ -1,0 +1,28 @@
+---
+aws_access_key_id: EXAMPLE_KEY_ID
+aws_secret_access_key: EXAMPLE_ACCESS_KEY
+region: us-west-1
+strategies:
+- hours_between: 1
+  num_to_keep: 5
+  mount_point: /dev/sdh
+  pre_snapshot_tasks:
+  - pg_dump some_app_prodction > /path/to/backups/on/volume/being/snapshoted
+  - mongodump --db some_app_prodction --out /path/to/backups/on/volume/being/snapshoted
+  post_snapshot_tasks:
+- hours_between: 6
+  num_to_keep: 4
+  mount_point: /dev/sdh
+- hours_between: 24
+  num_to_keep: 4
+  mount_point: /dev/sda1
+- hours_between: 96
+  num_to_keep: 4
+  mount_point: /dev/sda1
+log_path: /usr/local/var/drebs.log
+email_on_exception: admin@your.org
+email_host: 'smtp.gmail.com'
+email_port: 587
+email_domain: 'gmail.com'
+email_user: = 'Your smtp username'
+email_password: = 'Your smtp password'

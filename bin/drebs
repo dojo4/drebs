@@ -1,249 +1,129 @@
 #!/usr/bin/env ruby
 
 require 'rubygems'
-require 'right_aws'
-require 'logger'
 require 'main'
+require 'logger'
 require 'systemu'
-require 'json'
+require 'yaml'
 require 'socket'
 require 'net/smtp'
+require 'pry'
 
-class DREBS
+Main {
 
-  ###### Begin User Config
-  DREBS_HOST_NAME = 'An identifier for your host: www1'
-  AWS_ACCESS_KEY_ID = 'YOUR ACCESS KEY ID'
-  AWS_SECRET_ACCESS_KEY = 'YOUR SECRET ACCESS KEY'
-  REGION = 'us-west-1'
-  BACKUP_STRATEGY = [
-    {
-      'hours_between'=>1, 'num_to_keep'=>5,
-      'mount_point'=>'/dev/sdh',
-      'pre_snapshot_tasks'=> [
-        'pg_dump some_app_production > /path/to/backups/on/snapshoted/volume/some_app_production.sql',
-        'mongodump -d another_app-production -o /path/to/backups/on/snapshoted/volume/'
-      ]
-    },
-    {
-      'hours_between'=>6, 'num_to_keep'=>4,
-      'mount_point'=>'/dev/sdh',
-      'pre_snapshot_tasks'=> []
-    },
-    {
-      'hours_between'=>24, 'num_to_keep'=>4,
-      'mount_point'=>'/dev/sda1',
-      'pre_snapshot_tasks'=> []
-    },
-    {
-      'hours_between'=>96, 'num_to_keep'=>4,
-      'mount_point'=>'/dev/sda1',
-      'pre_snapshot_tasks'=> []
-    }
-  ]
-  LOG_PATH = '/usr/local/var/drebs.log'
-  BACKUP_STATE_FILE_PATH = '/usr/local/var/drebs_state.json'
-  EMAIL_ON_EXCEPTION = 'admin@your.org'
-  EMAIL_HOST = 'imap.gmail.com'
-  EMAIL_PORT = 993
-  EMAIL_USERNAME = 'your smpt username'
-  EMAIL_PASSWORD = 'your smpt password'
-  ###### End User Config
-
-  def initialize(options = {})
-    @drebs_host_name = options[:drebs_host_name] || options['drebs_host_name'] || DREBS_HOST_NAME
-    @aws_access_key_id = options[:aws_access_key_id] || options['aws_access_key_id'] || AWS_ACCESS_KEY_ID  
-    @aws_secret_access_key = options[:aws_secret_access_key] || options['aws_secret_access_key'] || AWS_SECRET_ACCESS_KEY   
-    @region = options[:region] || options['region'] || REGION   
-    @backup_strategy = options[:backup_strategy] || options['backup_strategy'] || BACKUP_STRATEGY   
-    @log_path = options[:log_path] || options['log_path'] || LOG_PATH   
-    @backup_state_file_path = options[:backup_state_file_path] || options['backup_state_file_path'] || BACKUP_STATE_FILE_PATH   
-    @email_on_exception =  options[:email_on_exception] || options['email_on_exception'] || EMAIL_ON_EXCEPTION   
-    @log = Logger.new(@log_path, 0, 10 * 1024 * 1024)
-  end
-  
-  def setup_backup_data(backup_strategy=@backup_strategy)
-    backup_data = Marshal.load(Marshal.dump(@backup_strategy))
-    backup_data.collect{|a_backup_strategy|
-      a_backup_strategy['hours_until_next_run'] = a_backup_strategy['hours_between']
-      a_backup_strategy['previous_snapshots'] = []
-    }
-    return backup_data
-  end
-  
-  def save_backup_data()
-    open @backup_state_file_path, "w" do |h|
-      h.write(@backup_data.to_json)
-    end
-  end
-  
-  def load_backup_data()
-    @backup_data = JSON.parse(open(@backup_state_file_path).read)
-  end
-  
-  def ec2(key_id=@aws_access_key_id, key=@aws_secret_access_key, region=@region)
-    return RightAws::Ec2.new(key_id, key, {:region=>region})
-  end
-  
-  def find_local_instance()
-    private_ip = UDPSocket.open {|s| s.connect("8.8.8.8", 1); s.addr.last}
-    ec2.describe_instances.each {|instance|
-      return instance if instance[:private_ip_address] == private_ip
-    }
-    return nil
-  end
-  
-  def find_local_ebs(mount_point='/dev/sdh')
-    return nil if not local_instance = find_local_instance
-    local_instance[:block_device_mappings].each {|volume|
-      return volume if volume[:device_name] == mount_point
-    }
-    return nil
-  end
-  
-  def get_snapshot(snapshot_id)
-    ec2.describe_snapshots {|a_snapshot|
-      return a_snapshot if a_snapshot[:aws_id] == snapshot_id
-    }
-  end
-  
-  def create_local_snapshot(pre_snapshot_tasks=nil, post_snapshot_tasks=nil, mount_point='/dev/sdh')
-    local_instance=find_local_instance
-    ip = local_instance[:ip_address]
-    instance_id = local_instance[:aws_instance_id]
-    volume_id = local_instance[:block_device_mappings].select{|m| m[:device_name]==mount_point}.first[:ebs_volume_id]
-    return nil if not ebs = find_local_ebs(mount_point)
-    pre_snapshot_tasks.each do |task|
-      result = systemu(task)
-      unless result[0].exitstatus == 0
-        error_string = "Error while executing pre-snapshot task: #{task} on #{@drebs_host_name} #{ip}:#{mount_point} #{instance_id}:#{volume_id} #{result[1]} #{result[2]}"
-        @log.error(error_string)
-        send_email("DREBS Error!", error_string)
-      end
-    end if pre_snapshot_tasks
-    snapshot = ec2.create_snapshot(ebs[:ebs_volume_id], "DREBS #{@drebs_host_name} #{ip}:#{mount_point} #{instance_id}:#{volume_id}")
-    Thread.new(snapshot[:aws_id], post_snapshot_tasks) {|snapshot_id, post_snapshot_tasks|
-      1.upto(500) {|a|
-        sleep(3)
-        break if get_snapshot(snapshot_id)[:aws_status] == 'completed'
-      }
-      post_snapshot_tasks.each do |task|
-        result = systemu(task)
-        unless result[0].exitstatus == 0
-          error_string = "Error while executing post-snapshot task: #{task} on #{@drebs_host_name} #{ip}:#{mount_point} #{instance_id}:#{volume_id} #{result[1]} #{result[2]}"
-          @log.error(error_string)
-          send_email("DREBS Error!", error_string)
-        end
-      end if post_snapshot_tasks
-    }
-    return snapshot
-  end
-  
-  def find_local_snapshots(mount_point='/dev/sdh')
-    return nil if not ebs = find_local_ebs(mount_point)
-    snapshots = []
-    ec2.describe_snapshots.each {|snapshot|
-      snapshots.push(snapshot) if snapshot[:aws_volume_id] == ebs[:ebs_volume_id]
-    }
-    return snapshots
-  end
-  
-  def prune_backups(backup_data)
-    to_prune = {}
-    backup_data.collect {|a_backup_strategy|
-      if a_backup_strategy['previous_snapshots'].count > a_backup_strategy['num_to_keep']
-        to_prune[a_backup_strategy['previous_snapshots'].shift] = nil
-      end
-    }
-    to_prune.each_key {|snapshot_to_prune|
-      ec2.delete_snapshot(snapshot_to_prune) unless backup_data.any? {|a_backup_strategy|
-        a_backup_strategy['previous_snapshots'].include?(snapshot_to_prune)
-      }
-    }
-  end
-  
-  def send_email(subject, body, options = {})
-    host = options[:email_host] || options['email_host'] || EMAIL_HOST
-    port = options[:email_port] || options['email_port'] || EMAIL_PORT
-    username = options[:email_username] || options['email_username'] || EMAIL_USERNAME
-    password = options[:email_password] || options['email_password'] || EMAIL_PASSWORD
-    
-
-    msg = "Subject: #{subject}\n\n#{body}"
-    smtp = Net::SMTP.new 'smtp.gmail.com', 587
-    smtp.enable_starttls
-    smtp.start('gmail.com', username, password, :login) {|smtp|
-      smtp.send_message(msg, username, @email_on_exception)
-    }
-  end
-
-  def run_drebs_cron
-    begin
-      unless File.exists?(@backup_state_file_path)
-        @backup_data = setup_backup_data()
-
-        mount_points = @backup_data.map {|strategy| strategy['mount_point']}.compact.flatten.uniq
-
-        mount_points.map do |mount_point|
-          strategies = @backup_data.select{|strategy| strategy['mount_point'] == mount_point}
-          pre_snapshot_tasks = strategies.map {|strategy| strategy['pre_snapshot_tasks']}.compact.flatten.uniq
-          post_snapshot_tasks = strategies.map {|strategy| strategy['post_snapshot_tasks']}.compact.flatten.uniq
-          unless strategies.empty?
-            @log.info("creating snapshot of #{mount_point}")
-            snapshot = create_local_snapshot(pre_snapshot_tasks, post_snapshot_tasks, mount_point)
-          end
-          strategies.collect {|strategy|
-            strategy['previous_snapshots'].push(snapshot[:aws_id])
-          }
-        end
-
-
-        save_backup_data
-      else
-        load_backup_data
-        @backup_data.collect {|strategy|
-          strategy['hours_until_next_run'] -= 1
-        }
-        backup_now = @backup_data.collect {|strategy| strategy if strategy['hours_until_next_run'] <= 0}.compact
-
-
-        mount_points = @backup_data.map {|strategy| strategy['mount_point']}.compact.flatten.uniq
-
-        mount_points.map do |mount_point|
-          strategies = @backup_data.select{|strategy| strategy['mount_point'] == mount_point}
-          pre_snapshot_tasks = strategies.map {|strategy| strategy['pre_snapshot_tasks']}.compact.flatten.uniq
-          post_snapshot_tasks = strategies.map {|strategy| strategy['post_snapshot_tasks']}.compact.flatten.uniq
-          unless strategies.empty?
-            @log.info("creating snapshot of #{mount_point}")
-            snapshot = create_local_snapshot(pre_snapshot_tasks, post_snapshot_tasks, mount_point)
-          end
-          strategies.collect {|strategy|
-            strategy['previous_snapshots'].push(snapshot[:aws_id])
-            strategy['hours_until_next_run'] = strategy['hours_between']
-          }
-
-        end
-
-        prune_backups(@backup_data)
-        save_backup_data
-      end
-    rescue Exception => error
-      @log.error("Exception occured during backup: #{error.message}\n#{error.backtrace.join("\n")}")
-      send_email("DREBS Error! on #{@drebs_host_name}", "Host: #{@drebs_host_name} AWS Instance: #{find_local_instance[:aws_instance_id]}\n#{error.message}\n#{error.backtrace.join("\n")}")
-    end
-  end
-
-end
-
-if __FILE__ == $0
-  status = DATA.flock(File::LOCK_EX|File::LOCK_NB)
-  exit(42) unless status == 0
-  Main {
-    def run
-      drebs = DREBS.new
-      drebs.run_drebs_cron
-    end
+  argument('config_path'){
+    argument :optional
+    description "A configuration file path. Passing 'example_config' uses an example configuration.  Give it a try: >drebs check_config example_config"
   }
-end
 
-__END__
+  mode 'execute' do
+    def run
+      setup
+      @drebs.execute
+    end
+  end
+
+#  mode 'install_crontab' do
+#    def run
+#      setup
+#      @drebs.install_crontab
+#    end
+#  end
+
+  mode 'check_config' do
+    def run
+      setup
+      puts("No config errors found!")
+    end
+  end
+
+  mode 'check_cloud' do
+    def run
+      setup
+      @drebs.check_cloud
+    end
+  end
+
+  mode 'shell' do
+    def run
+      setup
+      binding.pry(:hooks => Pry::Hooks.new, :prompt => proc{|*a| "drebs>"})
+    end
+  end
+
+  def run
+    help!
+  end
+
+  db {
+    create_table :strategies do
+      String :config
+      String :snapshots
+      String :status
+      String :time_til_next_run
+      String :time_between_runs
+      String :num_to_keep
+      String :pre_snapshot_tasks
+      String :post_snapshot_tasks
+      String :mount_point
+    end unless table_exists? :strategies
+  }
+
+  def setup()
+    unless config_path = params['config_path'].value
+      raise 'Please provide a value for config_path.'
+    end
+    @config = load_config(config_path)
+
+    require File.join(lib_dir(), 'drebs', 'cloud.rb')
+    require File.join(lib_dir(), 'drebs', 'main.rb')
+
+    config_errors = Drebs::Main.check_config(example_config('print' => false), @config)
+    if config_errors.length == 0
+      @drebs = Drebs::Main.new('config' => @config, 'db' => db)
+    else
+      config_errors.each{|config_error| puts(config_error)}
+    end
+  end
+
+  def base_dir(*args, &block)
+    basedir = File.dirname(File.expand_path(__FILE__))
+    File.join(basedir, *args)
+  ensure
+    if block
+      begin
+        $LOAD_PATH.unshift(basedir)
+        block.call()
+      ensure
+        $LOAD_PATH.shift()
+      end
+    end
+  end
+
+  def lib_dir(&block)
+    base_dir(['..', 'lib'], &block)
+  end
+
+  def config_dir(&block)
+    base_dir(['..', 'config'], &block)
+  end
+
+  def example_config(params)
+    config_path = File.join(config_dir, 'example.yml')
+    example_config = IO.read(config_path)
+    if params['print']
+      puts("Example YAML Config File (#{config_path}):")
+      puts(example_config) 
+      puts()
+    end
+    YAML::load(example_config)
+  end
+
+  def load_config(config_path)
+    if config_path == 'example_config'
+      example_config('print' => true)
+    else
+      YAML::load(IO.read(config_path))
+    end
+  end
+}

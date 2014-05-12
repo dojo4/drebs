@@ -8,14 +8,39 @@
 
 ## Installation & Setup
 1. Clone the repo or install the gem
-1. Currently configuration is located at the top of the drebs bin.  Add you ec2 key, etc.
-1. Add Crontab entry: 0 * * * * drebs
-
-## Issues
-* State including config is cached in drebs_state.json.  This file will need to be deleted to get drebs to pick up new config.  Doing so will orphan current snapshots which will need to be deleted manually.
+1. Output the example configuration to a file: drebs check_config example_config > your_config.yml
+1. Create an AWS account with authorization limited to create, list, & delete snapshots (Example comming soon)
+1. Add AWS API keys for above account to your_config.yml
+1. configure your_config.yml per your backup requirements
+1. test your configuration: drebs check_config your_config.yml && drebs check_cloud your_config.yml
+1. Add Crontab entry: 0 * * * * drebs execute your_config.yml
 
 ## Todo
-* Tests!
-* Refactor using main with db for state and external config
+* Improve test coverage
 * Use Whenever gem for crontab setup
 * Arbitrary execution intervals (Snapshots every 5 minutes instead of every hour)
+* AWS API keys and other config values from Instance Data: http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/AESDG-chapter-instancedata.html
+* Add example AWS user access configuration
+* Implement support for pruning to occur from some other host so that the keys to delete snapshots are not available on host.
+
+## Testing notes
+
+*  __shell command__:  If you do: `drebs shell some_config` you will end up at a shell with `@drebs` defined and you will be able to access `@drebs.db`, `@drebs.config`, & `@drebs.cloud`.  If you set `@drebs.cloud` to be an instance of TestCloud from the test suite you should be able to execute various functions without actually hitting AWS and so work from your dev box.
+
+* Due to the nature of drebs being designed to be run from an ec2 you will need to be on your ec2 instance to test many of the AWS interactions.
+
+* You should be able to verify data on a snapshot by creating an ebs volume from the snapshot, attaching the volume to your instance and then mounting its file system on some mount point - [aws docs on using volumes](http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ebs-using-volumes.html)
+
+## Copyright 2014 Garett Shulman
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
