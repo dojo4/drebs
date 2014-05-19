@@ -2,6 +2,7 @@ This.rubyforge_project = 'DREBS'
 This.author = "Garett Shulman"
 This.email = "garett.shulman@gmail.com"
 This.homepage = "https://github.com/dojo4/#{ This.lib }"
+This.licenses = "Apache-2.0"
 
 task :default do
   puts((Rake::Task.tasks.map{|task| task.name.gsub(/::/,':')} - ['default']).sort)
@@ -143,6 +144,7 @@ spec.rubyforge_project = <%= This.rubyforge_project.inspect %>
 spec.author = <%= This.author.inspect %>
 spec.email = <%= This.email.inspect %>
 spec.homepage = <%= This.homepage.inspect %>
+spec.licenses = <%= This.licenses.inspect %>
 end
 __
       }

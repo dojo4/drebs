@@ -13,9 +13,22 @@ spec.files =
  "Rakefile",
  "bin",
  "bin/drebs",
+ "config",
+ "config/example.yml",
  "drebs.gemspec",
  "lib",
- "lib/drebs.rb"]
+ "lib/drebs",
+ "lib/drebs.rb",
+ "lib/drebs/cloud.rb",
+ "lib/drebs/main.rb",
+ "test",
+ "test/helper.rb",
+ "test/unit",
+ "test/unit/drebs",
+ "test/unit/drebs/drebs_test.rb",
+ "test/unit/drebs/main_test.rb",
+ "tmp_test_data",
+ "tmp_test_data/db.sqlite"]
 
 spec.executables = ["drebs"]
 spec.require_path = "lib"
@@ -23,21 +36,24 @@ spec.require_path = "lib"
 spec.test_files = nil
 
 
-spec.add_dependency(*["right_aws", " >= 3.0.0 "])
+spec.add_dependency(*["right_aws", ">= 3.1.0"])
 
-spec.add_dependency(*["logger", " >= 1.2.8 "])
+spec.add_dependency(*["logger", ">= 1.2.8"])
 
-spec.add_dependency(*["main", " >= 5.0.0 "])
+spec.add_dependency(*["main", ">= 5.2.0"])
 
-spec.add_dependency(*["systemu", " >= 2.4.2 "])
+spec.add_dependency(*["systemu", ">= 2.4.2"])
 
-spec.add_dependency(*["json", " >= 1.5.1 "])
+spec.add_dependency(*["json", ">= 1.5.1"])
+
+spec.add_dependency(*["pry", ">= 0.9.12.6"])
 
 
 spec.extensions.push(*[])
 
 spec.rubyforge_project = "DREBS"
 spec.author = "Garett Shulman"
-spec.email = "garett@dojo4.com"
+spec.email = "garett.shulman@gmail.com"
 spec.homepage = "https://github.com/dojo4/drebs"
+spec.licenses = "Apache-2.0"
 end
