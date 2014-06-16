@@ -141,7 +141,7 @@ spec.add_dependency(*<%= Array(lib_version).flatten.inspect %>)
 spec.extensions.push(*<%= extensions.inspect %>)
 
 spec.rubyforge_project = <%= This.rubyforge_project.inspect %>
-spec.author = <%= This.author.inspect %>
+spec.authors = <%= This.authors.inspect %>
 spec.email = <%= This.email.inspect %>
 spec.homepage = <%= This.homepage.inspect %>
 spec.licenses = <%= This.licenses.inspect %>
