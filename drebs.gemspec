@@ -3,10 +3,10 @@
 
 Gem::Specification::new do |spec|
 spec.name = "drebs"
-spec.version = "0.0.1"
+spec.version = "0.1.0"
 spec.platform = Gem::Platform::RUBY
 spec.summary = "drebs"
-spec.description = "description: drebs kicks the ass"
+spec.description = "drebs: Disaster Recovery for Elastic Block Store. An AWS EBS backup script."
 
 spec.files =
 ["README.md",
@@ -52,8 +52,8 @@ spec.add_dependency(*["pry", ">= 0.9.12.6"])
 spec.extensions.push(*[])
 
 spec.rubyforge_project = "DREBS"
-spec.author = "Garett Shulman"
-spec.email = "garett.shulman@gmail.com"
+spec.authors = ["Garett Shulman", "Miles Matthias"]
+spec.email = "miles@dojo4.com"
 spec.homepage = "https://github.com/dojo4/drebs"
 spec.licenses = "Apache-2.0"
 end
