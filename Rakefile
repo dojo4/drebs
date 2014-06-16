@@ -1,6 +1,6 @@
 This.rubyforge_project = 'DREBS'
-This.author = "Garett Shulman"
-This.email = "garett.shulman@gmail.com"
+This.authors = ["Garett Shulman", "Miles Matthias"]
+This.email = "miles@dojo4.com"
 This.homepage = "https://github.com/dojo4/#{ This.lib }"
 This.licenses = "Apache-2.0"
 
