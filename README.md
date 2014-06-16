@@ -31,7 +31,7 @@
 
 * You should be able to verify data on a snapshot by creating an ebs volume from the snapshot, attaching the volume to your instance and then mounting its file system on some mount point - [aws docs on using volumes](http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ebs-using-volumes.html)
 
-## Copyright 2014 Garett Shulman
+## Copyright 2014 [dojo4](www.dojo4.com)
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
