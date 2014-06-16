@@ -89,7 +89,7 @@ task :gemspec do
   #has_rdoc = true #File.exist?('doc')
   test_files = test(?e, "test/#{ lib }.rb") ? "test/#{ lib }.rb" : nil
   summary = object.respond_to?(:summary) ? object.summary : "summary: #{ lib } kicks the ass"
-  description = object.respond_to?(:description) ? object.description : "description: #{ lib } kicks the ass"
+  description = object.respond_to?(:description) ? object.description : "#{ lib }: Disaster Recovery for Elastic Block Store. An AWS EBS backup script."
 
   if This.extensions.nil?
     This.extensions = []
