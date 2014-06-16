@@ -21,7 +21,6 @@
 * Arbitrary execution intervals (Snapshots every 5 minutes instead of every hour)
 * AWS API keys and other config values from Instance Data: http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/AESDG-chapter-instancedata.html
 * Add example AWS user access configuration
-* Implement support for pruning to occur from some other host so that the keys to delete snapshots are not available on host.
 
 ## Testing notes
 
