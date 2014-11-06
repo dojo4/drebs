@@ -5,7 +5,7 @@
 # DREBS libs
 #
   module DREBS
-    Version = '0.1.0' unless defined?(Version)
+    Version = '0.1.1' unless defined?(Version)
 
     def version
       DREBS::Version

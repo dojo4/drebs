@@ -3,7 +3,7 @@
 
 Gem::Specification::new do |spec|
 spec.name = "drebs"
-spec.version = "0.1.0"
+spec.version = "0.1.1"
 spec.platform = Gem::Platform::RUBY
 spec.summary = "drebs"
 spec.description = "drebs: Disaster Recovery for Elastic Block Store. An AWS EBS backup script."
