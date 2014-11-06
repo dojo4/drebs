@@ -1,4 +1,5 @@
 require 'right_aws'
+require 'date'
 
 module Drebs
   class Cloud
@@ -46,22 +47,26 @@ module Drebs
         return a_snapshot if a_snapshot[:aws_id] == snapshot_id
       }
     end
-    
+
     def create_local_snapshot(pre_snapshot_tasks, post_snapshot_tasks, mount_point)
       local_instance=find_local_instance
       ip = local_instance[:ip_address]
       instance_id = local_instance[:aws_instance_id]
+      instance_tags = ec2.describe_tags(:filters => {"resource-id" => instance_id})
+      instance_name_tag = instance_tags.find{|t| t[:key] == "Name"}
+      instance_desc = instance_name_tag.nil? ? ip : instance_name_tag[:value]
       volume_id = local_instance[:block_device_mappings].select{|m| m[:device_name]==mount_point}.first[:ebs_volume_id]
+      timestamp = DateTime.now.strftime("%Y%m%d%H%M%S")
       return nil if not ebs = find_local_ebs(mount_point)
       pre_snapshot_tasks.each do |task|
         result, stdout, stderr = systemu(task)
         unless result.exitstatus == 0
           raise Exception.new(
-            "Error while executing pre-snapshot task: #{task} on #{ip}:#{mount_point} #{instance_id}:#{volume_id} "
+            "Error while executing pre-snapshot task: #{task} on #{instance_desc}:#{mount_point} #{instance_id}:#{volume_id} at #{timestamp}"
           )
         end
       end if pre_snapshot_tasks
-      snapshot = ec2.create_snapshot(ebs[:ebs_volume_id], "DREBS #{ip}:#{mount_point} #{instance_id}:#{volume_id}")
+      snapshot = ec2.create_snapshot(ebs[:ebs_volume_id], "DREBS #{instance_desc}:#{mount_point} #{instance_id}:#{volume_id} at #{timestamp}")
       Thread.new(snapshot[:aws_id], post_snapshot_tasks) do |snapshot_id, post_snapshot_tasks|
         1.upto(500) do |a|
           sleep(3)
@@ -71,7 +76,7 @@ module Drebs
           result = systemu(task)
           unless result.exitstatus == 0
             raise Exception.new(
-              "Error while executing post-snapshot task: #{task} on #{ip}:#{mount_point} #{instance_id}:#{volume_id} "
+              "Error while executing post-snapshot task: #{task} on #{instance_desc}:#{mount_point} #{instance_id}:#{volume_id} at #{timestamp}"
             )
           end
         end if post_snapshot_tasks
