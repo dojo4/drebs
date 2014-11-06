@@ -56,7 +56,7 @@ module Drebs
       pre_snapshot_tasks.each do |task|
         result, stdout, stderr = systemu(task)
         unless result.exitstatus == 0
-          raise Exception(
+          raise Exception.new(
             "Error while executing pre-snapshot task: #{task} on #{ip}:#{mount_point} #{instance_id}:#{volume_id} "
           )
         end
@@ -70,7 +70,7 @@ module Drebs
         post_snapshot_tasks.each do |task|
           result = systemu(task)
           unless result.exitstatus == 0
-            raise Exception(
+            raise Exception.new(
               "Error while executing post-snapshot task: #{task} on #{ip}:#{mount_point} #{instance_id}:#{volume_id} "
             )
           end
