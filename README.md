@@ -8,12 +8,12 @@
 
 ## Installation & Setup
 1. Clone the repo or install the gem
-1. Output the example configuration to a file: drebs check_config example_config > your_config.yml
-1. Create an AWS account with authorization limited to create, list, & delete snapshots (Example comming soon)
-1. Add AWS API keys for above account to your_config.yml
-1. configure your_config.yml per your backup requirements
-1. test your configuration: drebs check_config your_config.yml && drebs check_cloud your_config.yml
-1. Add Crontab entry: 0 * * * * drebs execute your_config.yml
+2. Output the example configuration to a file: drebs check_config example_config > your_config.yml
+3. Create an AWS account with authorization limited to create, list, & delete snapshots (Example coming soon)
+4. Add AWS API keys for above account to your_config.yml
+5. configure your_config.yml per your backup requirements
+6. test your configuration: drebs check_config your_config.yml && drebs check_cloud your_config.yml
+7. Add Crontab entry: 0 * * * * drebs execute your_config.yml
 
 ## Todo
 * Improve test coverage
