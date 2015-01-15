@@ -103,5 +103,10 @@ module Drebs
       }
       return snapshots
     end
+
+    def delete_snapshot(snapshot_id)
+      snapshot = get_snapshot(snapshot_id)
+      snapshot.delete
+    end
   end
 end

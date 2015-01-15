@@ -117,7 +117,7 @@ module Drebs
 
         if strategies_with_snapshot.count == 1
           begin
-            @cloud.ec2.delete_snapshot(snapshot.split(":")[0])
+            @cloud.delete_snapshot(snapshot.split(":")[0])
           rescue RightAws::AwsError => e
             type = e.errors.first.first rescue ''
             raise unless type == "InvalidSnapshot.NotFound"
