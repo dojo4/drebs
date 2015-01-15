@@ -159,7 +159,7 @@ module Drebs
             snapshots.select!{|snapshot| @cloud.local_ebs_ids.include? snapshot.split(":")[1]}
             snapshots.push(
               s[:status]=='active' ?
-                "#{snapshot[:aws_id]}:#{snapshot[:aws_volume_id]}" : nil
+                "#{snapshot.id}:#{snapsho.volume_id}" : nil
             )
             @db[:strategies].filter(:config=>s[:config]).update(
               :snapshots => snapshots.join(","),
