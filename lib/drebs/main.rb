@@ -77,25 +77,31 @@ module Drebs
     end
 
     def send_email(subject, body)
-      if @config['email_use_local_mta:']
-        smtp = Net::SMTP.new('localhost')
+      msg = "Subject: #{subject}\n\n#{body}"
+
+      if @config['email_use_local_mta']
         domain   = ENV['HOSTNAME']
         username = "drebs@#{domain}"
         password = nil
+        smtp     = Net::SMTP.new('localhost')
+        smtp.start(domain) {|smtp|
+          smtp.send_message(msg, username, @config['email_on_exception'])
+        }
+
       else
-        host = @config['email_host']
-        port = @config['email_port']
-        domain = @config['email_domain']
+        host     = @config['email_host']
+        port     = @config['email_port']
+        domain   = @config['email_domain']
         username = @config['email_user']
         password = @config['email_password']
-        smtp = Net::SMTP.new(host, port)
-      smtp.enable_starttls
+        smtp     = Net::SMTP.new(host, port)
+        smtp.enable_starttls
+        smtp.start(domain, username, password, :login) {|smtp|
+          smtp.send_message(msg, username, @config['email_on_exception'])
+        }
+
       end
 
-      msg = "Subject: #{subject}\n\n#{body}"
-      smtp.start(domain, username, password, :login) {|smtp|
-        smtp.send_message(msg, username, @config['email_on_exception'])
-      }
     end
 
     def prune_backups(strategies)
@@ -176,7 +182,7 @@ module Drebs
 
         rescue Exception => error
           @log.error("Exception occured during backup: #{error.message}\n#{error.backtrace.join("\n")}")
-          #send_email("DREBS Error!", "AWS Instance: #{@cloud.find_local_instance.instance_id}\n#{error.message}\n#{error.backtrace.join("\n")}")
+          send_email("DREBS Error!", "AWS Instance: #{@cloud.find_local_instance.instance_id}\n#{error.message}\n#{error.backtrace.join("\n")}")
         end
       end
 
