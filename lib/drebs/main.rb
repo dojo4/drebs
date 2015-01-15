@@ -77,15 +77,22 @@ module Drebs
     end
 
     def send_email(subject, body)
-      host = @config['email_host']
-      port = @config['email_port']
-      domain = @config['email_domain']
-      username = @config['email_user']
-      password = @config['email_password']
+      if @config['email_use_local_mta:']
+        smtp = Net::SMTP.new('localhost')
+        domain   = ENV['HOSTNAME']
+        username = "drebs@#{domain}"
+        password = nil
+      else
+        host = @config['email_host']
+        port = @config['email_port']
+        domain = @config['email_domain']
+        username = @config['email_user']
+        password = @config['email_password']
+        smtp = Net::SMTP.new(host, port)
+      smtp.enable_starttls
+      end
 
       msg = "Subject: #{subject}\n\n#{body}"
-      smtp = Net::SMTP.new(host, port)
-      smtp.enable_starttls
       smtp.start(domain, username, password, :login) {|smtp|
         smtp.send_message(msg, username, @config['email_on_exception'])
       }
