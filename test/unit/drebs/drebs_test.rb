@@ -1,6 +1,6 @@
 require "./test/helper.rb"
 
-class DrebsMain < Test::Unit::TestCase
+class DrebsMain < Minitest::Test
 
   def test_backups_get_pruned
     TestContext.drebs_context() do |config, db, cloud, drebs|

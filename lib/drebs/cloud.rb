@@ -11,8 +11,8 @@ module Drebs
       if @config['use_iam']
         @ec2 = AWS::EC2.new(
           :region => @config['region'],
-          :log_formatter => AWS::Core::LogFormatter.debug,
-          :logger => Logger.new($stdout)
+          #:log_formatter => AWS::Core::LogFormatter.debug,
+          #:logger => Logger.new($stdout)
         )
       else
         @ec2 = AWS::EC2.new(
