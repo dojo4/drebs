@@ -77,7 +77,7 @@ module Drebs
           )
         end
       end if pre_snapshot_tasks
-      snapshot = ebs.create_snapshot("DREBS #{instance_desc}:#{mount_point} #{instance_id}:#{volume_id} at #{timestamp}")
+      snapshot = ebs.volume.create_snapshot("DREBS #{instance_desc}:#{mount_point} #{instance_id}:#{volume_id} at #{timestamp}")
       Thread.new(snapshot.id, post_snapshot_tasks) do |snapshot_id, post_snapshot_tasks|
         1.upto(500) do |a|
           sleep(3)

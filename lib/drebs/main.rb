@@ -6,10 +6,10 @@ module Drebs
 
     def initialize(params)
       unless @config = params['config'].clone()
-        raise "No config_file_path passed!" 
+        raise "No config_file_path passed!"
       end
       unless @db = params['db']
-        raise "No db passed!" 
+        raise "No db passed!"
       end
       update_strategies(@config.delete("strategies"))
       @cloud = Drebs::Cloud.new(@config)
@@ -24,14 +24,14 @@ module Drebs
     def Main.check_config(reference_config, other_config)
       reference_config = reference_config.clone()
       reference_strategy = reference_config.delete('strategies').last
-  
+
       errors = []
-      
+
       config_ok = reference_config.keys.each do |key|
         config_ok = other_config.has_key?(key) and other_config[key] != nil and other_config[key] != ""
         errors.push("Missing key/value for key: #{key}") unless config_ok
       end
-  
+
       strategies = other_config['strategies']
       if strategies.is_a?(Array) and strategies.first()
         strategies.each_with_index do |strategy, i|
@@ -44,7 +44,7 @@ module Drebs
       else
         errors.push("Missing strategies array")
       end
-  
+
       return errors
     end
 
@@ -82,7 +82,7 @@ module Drebs
       domain = @config['email_domain']
       username = @config['email_user']
       password = @config['email_password']
-      
+
       msg = "Subject: #{subject}\n\n#{body}"
       smtp = Net::SMTP.new(host, port)
       smtp.enable_starttls
@@ -90,7 +90,7 @@ module Drebs
         smtp.send_message(msg, username, @config['email_on_exception'])
       }
     end
-  
+
     def prune_backups(strategies)
       to_prune = []
 
@@ -132,28 +132,28 @@ module Drebs
 
     def execute
       active_strategies = @db[:strategies].filter({:status=>"active"})
-  
+
       #Decrement time_til_next_run, save
       active_strategies.each do |s|
         @db[:strategies].filter(:config=>s[:config]).update(
           :time_til_next_run => (s[:time_til_next_run].to_i - 1)
         )
       end
-  
+
       active_strategies = @db[:strategies].filter({:status=>"active"})
 
       #backup_now = strategies where time_til_next_run <= 0
       backup_now = active_strategies.to_a.select{|s| s[:time_til_next_run].to_i <= 0}
-  
+
       #loop over strategies grouped by mount_point
       backup_now.group_by{|s| s[:mount_point]}.each do |mount_point, strategies|
         pre_snapshot_tasks = strategies.map{|s| s[:pre_snapshot_tasks].split(",")}.flatten.uniq
         post_snapshot_tasks = strategies.map{|s| s[:pre_snapshot_tasks].split(",")}.flatten.uniq
-  
+
         @log.info("creating snapshot of #{mount_point}")
         begin
           snapshot = @cloud.create_local_snapshot(pre_snapshot_tasks, post_snapshot_tasks, mount_point)
-  
+
           strategies.collect {|s|
             snapshots = s[:snapshots].split(",")
             snapshots.select!{|snapshot| @cloud.local_ebs_ids.include? snapshot.split(":")[1]}
@@ -166,7 +166,7 @@ module Drebs
               :time_til_next_run => s[:time_between_runs]
             )
           }
-    
+
         rescue Exception => error
           @log.error("Exception occured during backup: #{error.message}\n#{error.backtrace.join("\n")}")
           send_email("DREBS Error!", "AWS Instance: #{@cloud.find_local_instance[:aws_instance_id]}\n#{error.message}\n#{error.backtrace.join("\n")}")
