@@ -1,10 +1,20 @@
 require 'right_aws'
+require 'aws-sdk'
 require 'date'
 
 module Drebs
   class Cloud
     def initialize(config)
       @config = config
+      if @config['iam_role']
+        @ec2 = AWS::EC2.new(:region => @config['region'])
+      else
+        @ec2 = AWS::EC2.new(
+          :access_key_id     => @config['aws_access_key_id'],
+          :secret_access_key => @config['aws_secret_access_key'],
+          :region            => @config['region']
+        )
+      end
     end
 
     def check_cloud
@@ -12,22 +22,16 @@ module Drebs
       find_local_instance
     end
 
-    def ec2
-      key_id = @config["aws_access_key_id"]
-      key = @config["aws_secret_access_key"]
-      region = @config["region"]
-      return RightAws::Ec2.new(key_id, key, {:region=>region})
-    end
-    
     def find_local_instance
       #find a better way... right-aws?
       private_ip = UDPSocket.open{|s| s.connect("8.8.8.8", 1); s.addr.last}
-      ec2.describe_instances.each do |instance|
-        return instance if instance[:private_ip_address] == private_ip
+      inst = @ec2.instances.select do |instance|
+        instance.private_ip_address == private_ip
       end
-      return nil
+
+      return inst.empty? ? nil : inst.first
     end
-    
+
     def find_local_ebs(mount_point)
       return nil if not local_instance = find_local_instance
       local_instance[:block_device_mappings].each do |volume|
@@ -37,11 +41,11 @@ module Drebs
     end
 
     def local_ebs_ids
-      @ebs_ids ||= find_local_instance[:block_device_mappings].map do |volume| 
+      @ebs_ids ||= find_local_instance[:block_device_mappings].map do |volume|
         volume[:ebs_volume_id]
       end rescue nil
     end
-    
+
     def get_snapshot(snapshot_id)
       ec2.describe_snapshots {|a_snapshot|
         return a_snapshot if a_snapshot[:aws_id] == snapshot_id
@@ -49,15 +53,17 @@ module Drebs
     end
 
     def create_local_snapshot(pre_snapshot_tasks, post_snapshot_tasks, mount_point)
-      local_instance=find_local_instance
-      ip = local_instance[:ip_address]
-      instance_id = local_instance[:aws_instance_id]
-      instance_tags = ec2.describe_tags(:filters => {"resource-id" => instance_id})
+      local_instance    = find_local_instance
+      ip                = local_instance[:ip_address]
+      instance_id       = local_instance[:aws_instance_id]
+      instance_tags     = ec2.describe_tags(:filters => {"resource-id" => instance_id})
       instance_name_tag = instance_tags.find{|t| t[:key] == "Name"}
-      instance_desc = instance_name_tag.nil? ? ip : instance_name_tag[:value]
-      volume_id = local_instance[:block_device_mappings].select{|m| m[:device_name]==mount_point}.first[:ebs_volume_id]
-      timestamp = DateTime.now.strftime("%Y%m%d%H%M%S")
+      instance_desc     = instance_name_tag.nil? ? ip : instance_name_tag[:value]
+      volume_id         = local_instance[:block_device_mappings].select{|m| m[:device_name]==mount_point}.first[:ebs_volume_id]
+      timestamp         = DateTime.now.strftime("%Y%m%d%H%M%S")
+
       return nil if not ebs = find_local_ebs(mount_point)
+
       pre_snapshot_tasks.each do |task|
         result, stdout, stderr = systemu(task)
         unless result.exitstatus == 0
@@ -83,7 +89,7 @@ module Drebs
       end
       return snapshot
     end
-    
+
     def find_local_snapshots(mount_point)
       return nil if not ebs = find_local_ebs(mount_point)
       snapshots = []
