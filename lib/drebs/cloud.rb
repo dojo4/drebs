@@ -8,7 +8,10 @@ module Drebs
     def initialize(config)
       @config = config
       if @config['use_iam']
-        @ec2 = AWS::EC2.new(:region => @config['region'])
+        @ec2 = AWS::EC2.new(
+          :region => @config['region'],
+          :log_formatter => AWS::Core::LogFormatter.debug
+        )
       else
         @ec2 = AWS::EC2.new(
           :access_key_id     => @config['aws_access_key_id'],
