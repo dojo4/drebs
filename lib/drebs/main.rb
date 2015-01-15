@@ -169,7 +169,7 @@ module Drebs
 
         rescue Exception => error
           @log.error("Exception occured during backup: #{error.message}\n#{error.backtrace.join("\n")}")
-          send_email("DREBS Error!", "AWS Instance: #{@cloud.find_local_instance[:aws_instance_id]}\n#{error.message}\n#{error.backtrace.join("\n")}")
+          #send_email("DREBS Error!", "AWS Instance: #{@cloud.find_local_instance.instance_id}\n#{error.message}\n#{error.backtrace.join("\n")}")
         end
       end
 
