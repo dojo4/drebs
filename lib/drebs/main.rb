@@ -178,7 +178,7 @@ module Drebs
             end
 
             if idx == disks.length-1
-              post_snapshot_tasks = strategies.map{|s| s[:pre_snapshot_tasks].split(",")}.flatten.uniq
+              post_snapshot_tasks = strategies.map{|s| s[:post_snapshot_tasks].split(",")}.flatten.uniq
             end
 
             begin
@@ -206,7 +206,7 @@ module Drebs
           end
         else
           pre_snapshot_tasks = strategies.map{|s| s[:pre_snapshot_tasks].split(",")}.flatten.uniq
-          post_snapshot_tasks = strategies.map{|s| s[:pre_snapshot_tasks].split(",")}.flatten.uniq
+          post_snapshot_tasks = strategies.map{|s| s[:post_snapshot_tasks].split(",")}.flatten.uniq
 
           begin
             @log.info("Taking snapshot of #{mount_point}")
