@@ -4,6 +4,8 @@ module Drebs
     attr_reader :cloud
     attr_reader :db
 
+    include Drebs::Raid
+
     def initialize(params)
       unless @config = params['config'].clone()
         raise "No config_file_path passed!"
@@ -14,7 +16,7 @@ module Drebs
       update_strategies(@config.delete("strategies"))
       @cloud = Drebs::Cloud.new(@config)
       @log = Logger.new(@config["log_path"])
-      @log.level = Logger::WARN
+      @log.level = Logger::INFO
     end
 
     def check_cloud
@@ -144,7 +146,6 @@ module Drebs
     end
 
     def execute
-      include Drebs::Raid
       active_strategies = @db[:strategies].filter({:status=>"active"})
 
       #Decrement time_til_next_run, save
@@ -181,7 +182,9 @@ module Drebs
             end
 
             begin
-              snapshot = @cloud.create_local_snapshot(pre_snapshot_tasks, post_snapshot_tasks, mount_point.gsub('xv', 's'))
+              disk = "/dev/#{item}".gsub('xv', 's')
+              @log.info("Taking snapshot of #{mount_point}:#{disk}")
+              snapshot = @cloud.create_local_snapshot(pre_snapshot_tasks, post_snapshot_tasks, disk)
 
               strategies.collect {|s|
                 snapshots = s[:snapshots].split(",")
@@ -206,6 +209,7 @@ module Drebs
           post_snapshot_tasks = strategies.map{|s| s[:pre_snapshot_tasks].split(",")}.flatten.uniq
 
           begin
+            @log.info("Taking snapshot of #{mount_point}")
             snapshot = @cloud.create_local_snapshot(pre_snapshot_tasks, post_snapshot_tasks, mount_point)
 
             strategies.collect {|s|

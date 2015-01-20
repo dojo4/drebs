@@ -20,8 +20,10 @@ module Drebs
         if line =~ /^md\d+/
           arr = line.split()
           if arr[3] =~ /^raid\d+/
-            if arr[0] == array
-              disks << arr[4..-1].map{|drive| drive.split('[')[0] }
+            if arr[0] == array.split('/').last
+              arr[4..-1].map{|drive| drive.split('[')[0] }.each do |dsk|
+                disks << dsk
+              end
             end
           end
         end
