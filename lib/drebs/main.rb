@@ -163,7 +163,6 @@ module Drebs
       #loop over strategies grouped by mount_point
       backup_now.group_by{|s| s[:mount_point]}.each do |mount_point, strategies|
 
-        @log.info("creating snapshot of #{mount_point}")
         disks = Array.new()
 
         if mount_point =~ /\/dev\/md\d+/
