@@ -16,7 +16,7 @@ module Drebs
       update_strategies(@config.delete("strategies"))
       @cloud = Drebs::Cloud.new(@config)
       @log = Logger.new(@config["log_path"])
-      @log.level = Logger::INFO
+      @log.level = eval("Logger::#{@config['log_level'].upcase}")
     end
 
     def check_cloud

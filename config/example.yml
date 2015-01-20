@@ -21,6 +21,7 @@ strategies:
   num_to_keep: 4
   mount_point: /dev/sda1
 log_path: /usr/local/var/drebs.log
+log_level: info
 email_use_local_mta: false
 email_on_exception: admin@your.org
 email_host: 'smtp.gmail.com'
