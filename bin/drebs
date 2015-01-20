@@ -75,6 +75,7 @@ Main {
     end
     @config = load_config(config_path)
 
+    require File.join(lib_dir(), 'drebs', 'raid.rb')
     require File.join(lib_dir(), 'drebs', 'cloud.rb')
     require File.join(lib_dir(), 'drebs', 'main.rb')
 
@@ -113,7 +114,7 @@ Main {
     example_config = IO.read(config_path)
     if params['print']
       puts("Example YAML Config File (#{config_path}):")
-      puts(example_config) 
+      puts(example_config)
       puts()
     end
     YAML::load(example_config)
