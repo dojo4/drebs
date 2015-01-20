@@ -144,13 +144,14 @@ module Drebs
     end
 
     def execute
+      include Drebs::Raid
       active_strategies = @db[:strategies].filter({:status=>"active"})
 
       #Decrement time_til_next_run, save
       active_strategies.each do |s|
         @db[:strategies].filter(:config=>s[:config]).update(
-          :time_til_next_run => (s[:time_til_next_run].to_i - 1)
-        )
+        :time_til_next_run => (s[:time_til_next_run].to_i - 1)
+      )
       end
 
       active_strategies = @db[:strategies].filter({:status=>"active"})
@@ -160,29 +161,70 @@ module Drebs
 
       #loop over strategies grouped by mount_point
       backup_now.group_by{|s| s[:mount_point]}.each do |mount_point, strategies|
-        pre_snapshot_tasks = strategies.map{|s| s[:pre_snapshot_tasks].split(",")}.flatten.uniq
-        post_snapshot_tasks = strategies.map{|s| s[:pre_snapshot_tasks].split(",")}.flatten.uniq
 
         @log.info("creating snapshot of #{mount_point}")
-        begin
-          snapshot = @cloud.create_local_snapshot(pre_snapshot_tasks, post_snapshot_tasks, mount_point)
+        disks = Array.new()
 
-          strategies.collect {|s|
-            snapshots = s[:snapshots].split(",")
-            snapshots.select!{|snapshot| @cloud.local_ebs_ids.include? snapshot.split(":")[1]}
-            snapshots.push(
-              s[:status]=='active' ?
-                "#{snapshot.id}:#{snapshot.volume_id}" : nil
-            )
-            @db[:strategies].filter(:config=>s[:config]).update(
-              :snapshots => snapshots.join(","),
-              :time_til_next_run => s[:time_between_runs]
-            )
-          }
+        if mount_point =~ /\/dev\/md\d+/
+          pre_snapshot_tasks  = Array.new()
+          post_snapshot_tasks = Array.new()
 
-        rescue Exception => error
-          @log.error("Exception occured during backup: #{error.message}\n#{error.backtrace.join("\n")}")
-          send_email("DREBS Error!", "AWS Instance: #{@cloud.find_local_instance.instance_id}\n#{error.message}\n#{error.backtrace.join("\n")}")
+          disks = get_drives_from_raid(mount_point)
+
+          disks.each_with_index do |item, idx|
+            if idx == 0
+              pre_snapshot_tasks = strategies.map{|s| s[:pre_snapshot_tasks].split(",")}.flatten.uniq
+            end
+
+            if idx == disks.length-1
+              post_snapshot_tasks = strategies.map{|s| s[:pre_snapshot_tasks].split(",")}.flatten.uniq
+            end
+
+            begin
+              snapshot = @cloud.create_local_snapshot(pre_snapshot_tasks, post_snapshot_tasks, mount_point.gsub('xv', 's'))
+
+              strategies.collect {|s|
+                snapshots = s[:snapshots].split(",")
+                snapshots.select!{|snapshot| @cloud.local_ebs_ids.include? snapshot.split(":")[1]}
+                snapshots.push(
+                  s[:status]=='active' ?
+                    "#{snapshot.id}:#{snapshot.volume_id}" : nil
+                  )
+                  @db[:strategies].filter(:config=>s[:config]).update(
+                    :snapshots => snapshots.join(","),
+                    :time_til_next_run => s[:time_between_runs]
+                  )
+              }
+
+            rescue Exception => error
+              @log.error("Exception occured during backup: #{error.message}\n#{error.backtrace.join("\n")}")
+              send_email("DREBS Error!", "AWS Instance: #{@cloud.find_local_instance.instance_id}\n#{error.message}\n#{error.backtrace.join("\n")}")
+            end
+          end
+        else
+          pre_snapshot_tasks = strategies.map{|s| s[:pre_snapshot_tasks].split(",")}.flatten.uniq
+          post_snapshot_tasks = strategies.map{|s| s[:pre_snapshot_tasks].split(",")}.flatten.uniq
+
+          begin
+            snapshot = @cloud.create_local_snapshot(pre_snapshot_tasks, post_snapshot_tasks, mount_point)
+
+            strategies.collect {|s|
+              snapshots = s[:snapshots].split(",")
+              snapshots.select!{|snapshot| @cloud.local_ebs_ids.include? snapshot.split(":")[1]}
+              snapshots.push(
+                s[:status]=='active' ?
+                  "#{snapshot.id}:#{snapshot.volume_id}" : nil
+                )
+                @db[:strategies].filter(:config=>s[:config]).update(
+                  :snapshots => snapshots.join(","),
+                  :time_til_next_run => s[:time_between_runs]
+                )
+            }
+
+          rescue Exception => error
+            @log.error("Exception occured during backup: #{error.message}\n#{error.backtrace.join("\n")}")
+            send_email("DREBS Error!", "AWS Instance: #{@cloud.find_local_instance.instance_id}\n#{error.message}\n#{error.backtrace.join("\n")}")
+          end
         end
       end
 
