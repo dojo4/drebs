@@ -5,7 +5,7 @@ module Drebs
       disks = Array.new()
 
       # Here we parse the following file content from which we determine
-      # the list of decices:
+      # the list of devices:
       #
       # Personalities : [raid10]
       # md126 : active raid10 xvdm[3] xvdl[2] xvdk[1] xvdj[0]
