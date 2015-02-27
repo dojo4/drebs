@@ -1,0 +1,10 @@
+source ENV['GEM_SOURCE'] || "https://rubygems.org"
+
+gem "main", ">= 5.2.0"
+gem "aws-sdk-v1", ">= 1.57.0"
+gem "logger", ">= 1.2.8"
+gem "systemu", ">= 2.4.2"
+gem "json", ">= 1.5.1"
+gem "pry", ">= 0.9.12.6"
+gem "sequel", ">= 4.19.0"
+gem "amalgalite", "1.4.0"
