@@ -41,7 +41,7 @@ spec.require_path = "lib"
 spec.test_files = nil
 
 
-spec.add_dependency(*["right_aws", ">= 3.1.0"])
+spec.add_dependency(*["aws-sdk-1", ">= 1.57.0"])
 
 spec.add_dependency(*["logger", ">= 1.2.8"])
 
@@ -52,6 +52,10 @@ spec.add_dependency(*["systemu", ">= 2.4.2"])
 spec.add_dependency(*["json", ">= 1.5.1"])
 
 spec.add_dependency(*["pry", ">= 0.9.12.6"])
+
+spec.add_dependency(*["sequel", ">=4.19.0"])
+
+spec.add_dependency(*["amalgalite", ">=1.4.0"])
 
 
 spec.extensions.push(*[])
