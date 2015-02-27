@@ -1,7 +1,9 @@
 require "main"
 require "./lib/drebs/main.rb"
 require "./lib/drebs/cloud.rb"
-require "test/unit"
+require "minitest"
+require "minitest/autorun"
+#require "test/unit"
 require "yaml"
 
 EXAMPLE_CONFIG_PATH = "./config/example.yml"
@@ -69,7 +71,7 @@ class TestContext
         create_table :snapshots do
           String :aws_id
           String :volume
-        end 
+        end
       end
 
       if block

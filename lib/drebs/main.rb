@@ -4,17 +4,19 @@ module Drebs
     attr_reader :cloud
     attr_reader :db
 
+    include Drebs::Raid
+
     def initialize(params)
       unless @config = params['config'].clone()
-        raise "No config_file_path passed!" 
+        raise "No config_file_path passed!"
       end
       unless @db = params['db']
-        raise "No db passed!" 
+        raise "No db passed!"
       end
       update_strategies(@config.delete("strategies"))
       @cloud = Drebs::Cloud.new(@config)
       @log = Logger.new(@config["log_path"])
-      @log.level = Logger::WARN
+      @log.level = eval("Logger::#{@config['log_level'].upcase}")
     end
 
     def check_cloud
@@ -24,14 +26,14 @@ module Drebs
     def Main.check_config(reference_config, other_config)
       reference_config = reference_config.clone()
       reference_strategy = reference_config.delete('strategies').last
-  
+
       errors = []
-      
+
       config_ok = reference_config.keys.each do |key|
         config_ok = other_config.has_key?(key) and other_config[key] != nil and other_config[key] != ""
         errors.push("Missing key/value for key: #{key}") unless config_ok
       end
-  
+
       strategies = other_config['strategies']
       if strategies.is_a?(Array) and strategies.first()
         strategies.each_with_index do |strategy, i|
@@ -44,7 +46,7 @@ module Drebs
       else
         errors.push("Missing strategies array")
       end
-  
+
       return errors
     end
 
@@ -77,20 +79,33 @@ module Drebs
     end
 
     def send_email(subject, body)
-      host = @config['email_host']
-      port = @config['email_port']
-      domain = @config['email_domain']
-      username = @config['email_user']
-      password = @config['email_password']
-      
       msg = "Subject: #{subject}\n\n#{body}"
-      smtp = Net::SMTP.new(host, port)
-      smtp.enable_starttls
-      smtp.start(domain, username, password, :login) {|smtp|
-        smtp.send_message(msg, username, @config['email_on_exception'])
-      }
+
+      if @config['email_use_local_mta']
+        domain   = ENV['HOSTNAME']
+        username = "drebs@#{domain}"
+        password = nil
+        smtp     = Net::SMTP.new('localhost')
+        smtp.start(domain) {|smtp|
+          smtp.send_message(msg, username, @config['email_on_exception'])
+        }
+
+      else
+        host     = @config['email_host']
+        port     = @config['email_port']
+        domain   = @config['email_domain']
+        username = @config['email_user']
+        password = @config['email_password']
+        smtp     = Net::SMTP.new(host, port)
+        smtp.enable_starttls
+        smtp.start(domain, username, password, :login) {|smtp|
+          smtp.send_message(msg, username, @config['email_on_exception'])
+        }
+
+      end
+
     end
-  
+
     def prune_backups(strategies)
       to_prune = []
 
@@ -117,7 +132,7 @@ module Drebs
 
         if strategies_with_snapshot.count == 1
           begin
-            @cloud.ec2.delete_snapshot(snapshot.split(":")[0])
+            @cloud.delete_snapshot(snapshot.split(":")[0])
           rescue RightAws::AwsError => e
             type = e.errors.first.first rescue ''
             raise unless type == "InvalidSnapshot.NotFound"
@@ -132,44 +147,87 @@ module Drebs
 
     def execute
       active_strategies = @db[:strategies].filter({:status=>"active"})
-  
+
       #Decrement time_til_next_run, save
       active_strategies.each do |s|
         @db[:strategies].filter(:config=>s[:config]).update(
-          :time_til_next_run => (s[:time_til_next_run].to_i - 1)
-        )
+        :time_til_next_run => (s[:time_til_next_run].to_i - 1)
+      )
       end
-  
+
       active_strategies = @db[:strategies].filter({:status=>"active"})
 
       #backup_now = strategies where time_til_next_run <= 0
       backup_now = active_strategies.to_a.select{|s| s[:time_til_next_run].to_i <= 0}
-  
+
       #loop over strategies grouped by mount_point
       backup_now.group_by{|s| s[:mount_point]}.each do |mount_point, strategies|
-        pre_snapshot_tasks = strategies.map{|s| s[:pre_snapshot_tasks].split(",")}.flatten.uniq
-        post_snapshot_tasks = strategies.map{|s| s[:pre_snapshot_tasks].split(",")}.flatten.uniq
-  
-        @log.info("creating snapshot of #{mount_point}")
-        begin
-          snapshot = @cloud.create_local_snapshot(pre_snapshot_tasks, post_snapshot_tasks, mount_point)
-  
-          strategies.collect {|s|
-            snapshots = s[:snapshots].split(",")
-            snapshots.select!{|snapshot| @cloud.local_ebs_ids.include? snapshot.split(":")[1]}
-            snapshots.push(
-              s[:status]=='active' ?
-                "#{snapshot[:aws_id]}:#{snapshot[:aws_volume_id]}" : nil
-            )
-            @db[:strategies].filter(:config=>s[:config]).update(
-              :snapshots => snapshots.join(","),
-              :time_til_next_run => s[:time_between_runs]
-            )
-          }
-    
-        rescue Exception => error
-          @log.error("Exception occured during backup: #{error.message}\n#{error.backtrace.join("\n")}")
-          send_email("DREBS Error!", "AWS Instance: #{@cloud.find_local_instance[:aws_instance_id]}\n#{error.message}\n#{error.backtrace.join("\n")}")
+
+        disks = Array.new()
+
+        if mount_point =~ /\/dev\/md\d+/
+          pre_snapshot_tasks  = Array.new()
+          post_snapshot_tasks = Array.new()
+
+          disks = get_drives_from_raid(mount_point)
+
+          disks.each_with_index do |item, idx|
+            if idx == 0
+              pre_snapshot_tasks = strategies.map{|s| s[:pre_snapshot_tasks].split(",")}.flatten.uniq
+            end
+
+            if idx == disks.length-1
+              post_snapshot_tasks = strategies.map{|s| s[:post_snapshot_tasks].split(",")}.flatten.uniq
+            end
+
+            begin
+              disk = "/dev/#{item}".gsub('xv', 's')
+              @log.info("Taking snapshot of #{mount_point}:#{disk}")
+              snapshot = @cloud.create_local_snapshot(pre_snapshot_tasks, post_snapshot_tasks, disk)
+
+              strategies.collect {|s|
+                snapshots = s[:snapshots].split(",")
+                snapshots.select!{|snapshot| @cloud.local_ebs_ids.include? snapshot.split(":")[1]}
+                snapshots.push(
+                  s[:status]=='active' ?
+                    "#{snapshot.id}:#{snapshot.volume_id}" : nil
+                  )
+                  @db[:strategies].filter(:config=>s[:config]).update(
+                    :snapshots => snapshots.join(","),
+                    :time_til_next_run => s[:time_between_runs]
+                  )
+              }
+
+            rescue Exception => error
+              @log.error("Exception occured during backup: #{error.message}\n#{error.backtrace.join("\n")}")
+              send_email("DREBS Error!", "AWS Instance: #{@cloud.find_local_instance.instance_id}\n#{error.message}\n#{error.backtrace.join("\n")}")
+            end
+          end
+        else
+          pre_snapshot_tasks = strategies.map{|s| s[:pre_snapshot_tasks].split(",")}.flatten.uniq
+          post_snapshot_tasks = strategies.map{|s| s[:post_snapshot_tasks].split(",")}.flatten.uniq
+
+          begin
+            @log.info("Taking snapshot of #{mount_point}")
+            snapshot = @cloud.create_local_snapshot(pre_snapshot_tasks, post_snapshot_tasks, mount_point)
+
+            strategies.collect {|s|
+              snapshots = s[:snapshots].split(",")
+              snapshots.select!{|snapshot| @cloud.local_ebs_ids.include? snapshot.split(":")[1]}
+              snapshots.push(
+                s[:status]=='active' ?
+                  "#{snapshot.id}:#{snapshot.volume_id}" : nil
+                )
+                @db[:strategies].filter(:config=>s[:config]).update(
+                  :snapshots => snapshots.join(","),
+                  :time_til_next_run => s[:time_between_runs]
+                )
+            }
+
+          rescue Exception => error
+            @log.error("Exception occured during backup: #{error.message}\n#{error.backtrace.join("\n")}")
+            send_email("DREBS Error!", "AWS Instance: #{@cloud.find_local_instance.instance_id}\n#{error.message}\n#{error.backtrace.join("\n")}")
+          end
         end
       end
 
