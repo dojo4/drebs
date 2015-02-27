@@ -1,9 +1,11 @@
 ## drebs.gemspec
 #
 
+require './lib/drebs/version.rb'
+
 Gem::Specification::new do |spec|
-spec.name = "drebs"
-spec.version = "0.1.2"
+spec.name = 'drebs'
+spec.version = Drebs::VERSION
 spec.platform = Gem::Platform::RUBY
 spec.summary = "drebs"
 spec.description = "drebs: Disaster Recovery for Elastic Block Store. An AWS EBS backup script."
@@ -21,14 +23,17 @@ spec.files =
  "lib/drebs.rb",
  "lib/drebs/cloud.rb",
  "lib/drebs/main.rb",
+ "lib/drebs/raid.rb",
+ "lib/drebs/version.rb",
  "test",
  "test/helper.rb",
  "test/unit",
  "test/unit/drebs",
  "test/unit/drebs/drebs_test.rb",
  "test/unit/drebs/main_test.rb",
- "tmp_test_data",
- "tmp_test_data/db.sqlite"]
+ #"tmp_test_data",
+ #"tmp_test_data/db.sqlite"
+ ]
 
 spec.executables = ["drebs"]
 spec.require_path = "lib"
